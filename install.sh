@@ -84,6 +84,45 @@ install_ralph() {
     log "Making loop.sh executable..."
     chmod +x "$RALPH_DIR/loop.sh"
 
+    # Create config directory and default config
+    local config_dir="$HOME/.config/ralph"
+    if [ ! -d "$config_dir" ]; then
+        mkdir -p "$config_dir"
+        success "Created config directory: $config_dir"
+    fi
+
+    if [ ! -f "$config_dir/config" ]; then
+        cat > "$config_dir/config" << 'EOF'
+# =============================================================================
+# Ralph v2 Configuration
+# =============================================================================
+# This file is sourced by loop.sh at startup.
+# Location: ~/.config/ralph/config
+
+# =============================================================================
+# SLACK NOTIFICATIONS
+# =============================================================================
+
+# Slack webhook URL for notifications (required for Slack)
+# Create one at: https://api.slack.com/messaging/webhooks
+# SLACK_WEBHOOK_URL="https://hooks.slack.com/services/xxx/yyy/zzz"
+
+# Send notification for each iteration (default: false)
+# Set to "true" for verbose per-iteration updates
+NOTIFY_PER_ITERATION=false
+
+# =============================================================================
+# DESKTOP NOTIFICATIONS (macOS)
+# =============================================================================
+
+# Enable macOS desktop notifications (default: true)
+DESKTOP_NOTIFICATION=true
+EOF
+        success "Created config file: $config_dir/config"
+    else
+        log "Config file already exists: $config_dir/config"
+    fi
+
     success "Installation complete!"
 }
 
@@ -111,6 +150,12 @@ show_instructions() {
     echo ""
     echo "  4. Run build loop:"
     echo "     $RALPH_DIR/loop.sh 20"
+    echo ""
+    echo "Notifications:"
+    echo ""
+    echo "  Configure Slack webhook for notifications:"
+    echo "  Edit: ~/.config/ralph/config"
+    echo "  Set:  SLACK_WEBHOOK_URL=\"https://hooks.slack.com/services/xxx/yyy/zzz\""
     echo ""
     echo "Documentation: $RALPH_DIR/docs/README.md"
     echo ""
