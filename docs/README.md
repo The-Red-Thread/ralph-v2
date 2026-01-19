@@ -124,6 +124,9 @@ ralph audit --docs-only
 # Include pattern analysis
 ralph audit --patterns
 
+# Lightweight audit (fewer subagents, lower cost)
+ralph audit --quick
+
 # Full analysis with auto-apply safe fixes
 ralph audit --full --apply
 ```
@@ -131,7 +134,12 @@ ralph audit --full --apply
 **Audit scopes:**
 - `--docs-only`: Verifies AGENTS.md, CLAUDE.md, README.md match actual code
 - `--patterns`: Adds pattern analysis (good patterns, inconsistencies, anti-patterns)
-- `--full`: Complete analysis including code quality concerns
+- `--full`: Complete analysis including code quality concerns (default)
+
+**Cost optimization:**
+- `--quick`: Uses ~10 subagents instead of ~100, prioritizes high-impact checks
+- `--docs-only --quick`: Minimal cost, just verifies documentation accuracy
+- Full audit on large codebases can cost $10-50+ depending on size
 
 **Output:**
 - `AUDIT_REPORT.md` - Detailed findings with evidence (file:line citations)
@@ -257,6 +265,7 @@ ralph plan-work "desc" 3     # Scoped planning, max 3 iterations
 ralph audit                  # Full codebase audit
 ralph audit --docs-only      # Documentation accuracy only
 ralph audit --patterns       # Include pattern analysis
+ralph audit --quick          # Lightweight audit (lower cost)
 ralph audit --full --apply   # Full audit with auto-apply fixes
 ralph-init                   # Initialize current directory as Ralph project
 ralph-check                  # Check prerequisites are installed

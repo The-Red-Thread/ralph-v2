@@ -13,6 +13,7 @@
 #   ./loop.sh audit --docs-only            # Only verify documentation accuracy
 #   ./loop.sh audit --patterns             # Include pattern analysis
 #   ./loop.sh audit --full                 # Complete analysis
+#   ./loop.sh audit --quick                # Lightweight audit (fewer subagents, lower cost)
 #   ./loop.sh audit --full --apply         # Apply safe updates automatically
 # =============================================================================
 
@@ -28,6 +29,7 @@ ITERATION=0
 SESSION_START=$(date +%s)
 AUDIT_SCOPE="full"
 AUDIT_APPLY="false"
+AUDIT_QUICK="false"
 
 # Load config if exists (for SLACK_WEBHOOK_URL, etc.)
 if [ -f "$CONFIG_FILE" ]; then
@@ -360,9 +362,12 @@ parse_arguments() {
                     --apply)
                         AUDIT_APPLY="true"
                         ;;
+                    --quick)
+                        AUDIT_QUICK="true"
+                        ;;
                     *)
                         error "Unknown audit flag: $1"
-                        error "Usage: ./loop.sh audit [--docs-only|--patterns|--full] [--apply]"
+                        error "Usage: ./loop.sh audit [--docs-only|--patterns|--full] [--quick] [--apply]"
                         exit 1
                         ;;
                 esac
@@ -405,9 +410,9 @@ run_iteration() {
             --model opus \
             --verbose
     elif [ "$mode" = "audit" ]; then
-        log "Audit scope: $AUDIT_SCOPE (apply: $AUDIT_APPLY)"
-        export AUDIT_SCOPE AUDIT_APPLY
-        envsubst '${AUDIT_SCOPE} ${AUDIT_APPLY}' < "$prompt_file" | claude -p \
+        log "Audit scope: $AUDIT_SCOPE (quick: $AUDIT_QUICK, apply: $AUDIT_APPLY)"
+        export AUDIT_SCOPE AUDIT_APPLY AUDIT_QUICK
+        envsubst '${AUDIT_SCOPE} ${AUDIT_APPLY} ${AUDIT_QUICK}' < "$prompt_file" | claude -p \
             --dangerously-skip-permissions \
             --output-format=stream-json \
             --model opus \
@@ -436,6 +441,7 @@ main() {
     fi
     if [ "$MODE" = "audit" ]; then
         echo -e "${GREEN}║  Audit scope: $(printf '%-46s' "$AUDIT_SCOPE")║${NC}"
+        echo -e "${GREEN}║  Quick mode: $(printf '%-47s' "$AUDIT_QUICK")║${NC}"
         echo -e "${GREEN}║  Auto-apply: $(printf '%-47s' "$AUDIT_APPLY")║${NC}"
     fi
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
