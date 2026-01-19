@@ -223,6 +223,52 @@ ralph-check                  # Check prerequisites are installed
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RALPH_DIR` | `~/.ralph-v2` | Ralph installation directory |
+| `CONFIG_FILE` | `~/.config/ralph/config` | Configuration file path |
+
+## Notifications
+
+Ralph v2 supports Slack and desktop notifications to keep you informed when running unattended.
+
+### Configuration
+
+Edit `~/.config/ralph/config`:
+
+```bash
+# Slack webhook URL (required for Slack notifications)
+SLACK_WEBHOOK_URL="https://hooks.slack.com/services/xxx/yyy/zzz"
+
+# Notify per iteration (default: false)
+NOTIFY_PER_ITERATION=true
+
+# Desktop notifications on macOS (default: true)
+DESKTOP_NOTIFICATION=true
+```
+
+### Setting Up Slack
+
+1. Go to [Slack API](https://api.slack.com/messaging/webhooks)
+2. Create a new app or use an existing one
+3. Enable "Incoming Webhooks"
+4. Add a new webhook to your workspace
+5. Copy the webhook URL to your config file
+
+### Notification Events
+
+| Event | Slack | Desktop |
+|-------|-------|---------|
+| Session complete | ✅ | ✅ |
+| Max iterations reached | ✅ | ✅ |
+| Session interrupted (Ctrl+C) | ✅ | ✅ |
+| Each iteration (if enabled) | ✅ | ❌ |
+
+### Slack Message Content
+
+Notifications include:
+- Project name and branch
+- Mode (plan/build/plan-work)
+- Session duration
+- Iteration count
+- Latest commit hash
 
 ## Conventions
 

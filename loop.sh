@@ -18,7 +18,20 @@ set -euo pipefail
 # =============================================================================
 
 RALPH_DIR="${RALPH_DIR:-$HOME/.ralph-v2}"
+CONFIG_FILE="${CONFIG_FILE:-$HOME/.config/ralph/config}"
 ITERATION=0
+SESSION_START=$(date +%s)
+
+# Load config if exists (for SLACK_WEBHOOK_URL, etc.)
+if [ -f "$CONFIG_FILE" ]; then
+    # shellcheck source=/dev/null
+    source "$CONFIG_FILE"
+fi
+
+# Default notification settings
+NOTIFY_PER_ITERATION=${NOTIFY_PER_ITERATION:-false}
+DESKTOP_NOTIFICATION=${DESKTOP_NOTIFICATION:-true}
+SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -46,6 +59,178 @@ warn() {
 
 error() {
     echo -e "${RED}[ERROR]${NC} $1" >&2
+}
+
+# =============================================================================
+# NOTIFICATION FUNCTIONS
+# =============================================================================
+
+get_session_duration() {
+    local now=$(date +%s)
+    local elapsed=$((now - SESSION_START))
+    local hours=$((elapsed / 3600))
+    local minutes=$(((elapsed % 3600) / 60))
+
+    if [ "$hours" -gt 0 ]; then
+        echo "${hours}h ${minutes}m"
+    else
+        echo "${minutes}m"
+    fi
+}
+
+get_project_name() {
+    basename "$(git rev-parse --show-toplevel 2>/dev/null)" || basename "$(pwd)"
+}
+
+send_slack_notification() {
+    local status="$1"      # "complete", "stopped", or "error"
+    local iterations="$2"
+    local message="${3:-}"
+
+    # Skip if no webhook configured
+    if [ -z "$SLACK_WEBHOOK_URL" ]; then
+        return 0
+    fi
+
+    local emoji="✅"
+    local color="#36a64f"
+    local title="Ralph v2 completed session"
+
+    if [ "$status" = "stopped" ]; then
+        emoji="⏹️"
+        color="#ff9800"
+        title="Ralph v2 reached max iterations"
+    elif [ "$status" = "error" ]; then
+        emoji="❌"
+        color="#f44336"
+        title="Ralph v2 encountered an error"
+    fi
+
+    local project_name=$(get_project_name)
+    local branch=$(get_current_branch)
+    local duration=$(get_session_duration)
+    local commit=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+    local payload=$(cat <<EOF
+{
+    "username": "Ralph v2",
+    "icon_url": "https://raw.githubusercontent.com/snarktank/ralph/main/ralph.webp",
+    "blocks": [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "$emoji $title",
+                "emoji": true
+            }
+        },
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": "*Project:*\n\`$project_name\`"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Branch:*\n\`$branch\`"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Mode:*\n\`$MODE\`"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Duration:*\n$duration"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Iterations:*\n$iterations"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": "*Commit:*\n\`$commit\`"
+                }
+            ]
+        }
+    ],
+    "attachments": [
+        {
+            "color": "$color"
+        }
+    ]
+}
+EOF
+)
+
+    # Send to Slack (silently fail if it doesn't work)
+    curl -s -X POST -H 'Content-type: application/json' \
+        --data "$payload" \
+        "$SLACK_WEBHOOK_URL" > /dev/null 2>&1 || true
+
+    log "Slack notification sent"
+}
+
+send_iteration_notification() {
+    local iteration="$1"
+    local status="$2"  # "started" or "completed"
+
+    # Skip if disabled or no webhook
+    if [ "$NOTIFY_PER_ITERATION" != "true" ] || [ -z "$SLACK_WEBHOOK_URL" ]; then
+        return 0
+    fi
+
+    local emoji="🔄"
+    local color="#2196f3"
+
+    if [ "$status" = "completed" ]; then
+        emoji="✓"
+        color="#36a64f"
+    fi
+
+    local project_name=$(get_project_name)
+    local branch=$(get_current_branch)
+
+    local payload=$(cat <<EOF
+{
+    "username": "Ralph v2",
+    "icon_url": "https://raw.githubusercontent.com/snarktank/ralph/main/ralph.webp",
+    "attachments": [
+        {
+            "color": "$color",
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "$emoji *Iteration $iteration $status* | \`$project_name\` on \`$branch\` | Mode: \`$MODE\`"
+                    }
+                }
+            ]
+        }
+    ]
+}
+EOF
+)
+
+    curl -s -X POST -H 'Content-type: application/json' \
+        --data "$payload" \
+        "$SLACK_WEBHOOK_URL" > /dev/null 2>&1 || true
+}
+
+send_desktop_notification() {
+    local title="$1"
+    local message="$2"
+
+    # Skip if disabled
+    if [ "$DESKTOP_NOTIFICATION" != "true" ]; then
+        return 0
+    fi
+
+    # macOS notification
+    if command -v osascript &> /dev/null; then
+        osascript -e "display notification \"$message\" with title \"$title\" sound name \"Glass\"" 2>/dev/null || true
+    fi
 }
 
 # =============================================================================
@@ -219,6 +404,16 @@ main() {
     branch=$(get_current_branch)
     log "Operating on branch: $branch"
 
+    # Display notification config
+    if [ -n "$SLACK_WEBHOOK_URL" ]; then
+        log "Slack notifications: enabled"
+    else
+        log "Slack notifications: disabled (set SLACK_WEBHOOK_URL in $CONFIG_FILE)"
+    fi
+
+    # Trap for clean exit with notifications
+    trap 'send_slack_notification "error" "$ITERATION"; send_desktop_notification "Ralph v2" "Session interrupted after $ITERATION iterations"' INT TERM
+
     # Main loop
     while true; do
         ITERATION=$((ITERATION + 1))
@@ -227,8 +422,13 @@ main() {
         if [ "$MAX_ITERATIONS" -gt 0 ] && [ "$ITERATION" -gt "$MAX_ITERATIONS" ]; then
             echo ""
             success "Reached maximum iterations ($MAX_ITERATIONS). Stopping."
+            send_slack_notification "stopped" "$((ITERATION - 1))"
+            send_desktop_notification "Ralph v2" "Reached max iterations ($MAX_ITERATIONS)"
             break
         fi
+
+        # Notify iteration start (if enabled)
+        send_iteration_notification "$ITERATION" "started"
 
         # Run Claude iteration
         if ! run_iteration "$PROMPT_FILE" "$MODE"; then
@@ -236,6 +436,9 @@ main() {
             warn "Continuing to next iteration..."
             continue
         fi
+
+        # Notify iteration complete (if enabled)
+        send_iteration_notification "$ITERATION" "completed"
 
         # Push changes after each iteration
         push_changes "$branch" || {
@@ -246,12 +449,23 @@ main() {
         sleep 2
     done
 
+    # Clear trap
+    trap - INT TERM
+
+    local project_name=$(get_project_name)
+    local duration=$(get_session_duration)
+
     echo ""
     echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║                 RALPH v2 - Session Complete                   ║${NC}"
     echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
     echo -e "${GREEN}║  Total iterations: $(printf '%-41s' "$ITERATION")║${NC}"
+    echo -e "${GREEN}║  Duration: $(printf '%-50s' "$duration")║${NC}"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+
+    # Send final notifications
+    send_slack_notification "complete" "$ITERATION"
+    send_desktop_notification "Ralph v2" "$project_name completed - $ITERATION iterations in $duration"
 }
 
 # =============================================================================
