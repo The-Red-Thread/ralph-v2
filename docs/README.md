@@ -28,31 +28,38 @@ claude auth  # Authenticate with your API key
 ## Installation
 
 ```bash
-# Clone or download Ralph v2 to ~/.ralph-v2
-# Then run the install script:
-~/.ralph-v2/install.sh
+# Clone Ralph v2
+git clone https://github.com/The-Red-Thread/ralph-v2.git ~/.ralph-v2
 
-# Or initialize a project directly:
-~/.ralph-v2/install.sh init /path/to/project
+# Check prerequisites
+~/.ralph-v2/install.sh check
+
+# Add aliases to your shell (~/.zshrc or ~/.bashrc)
+alias ralph='~/.ralph-v2/loop.sh'
+alias ralph-init='~/.ralph-v2/install.sh init'
+alias ralph-check='~/.ralph-v2/install.sh check'
+
+# Reload shell
+source ~/.zshrc
 ```
 
 ## Quick Start
 
 ```bash
 # 1. Initialize a project
-cp ~/.ralph-v2/templates/AGENTS.md ./AGENTS.md
-cp ~/.ralph-v2/templates/AUDIENCE_JTBD.md ./AUDIENCE_JTBD.md  # Optional
-mkdir specs
+cd /path/to/your-project
+ralph-init
 
-# 2. Create your first spec
+# 2. Edit AGENTS.md with your build/test commands
+
+# 3. Create your first spec
 # Discuss requirements with Claude, then save to specs/feature-name.md
-# Or use AskUserQuestion: "Interview me using AskUserQuestion to understand [JTBD/topic]"
 
-# 3. Generate implementation plan
-~/.ralph-v2/loop.sh plan
+# 4. Generate implementation plan
+ralph plan
 
-# 4. Build
-~/.ralph-v2/loop.sh 20  # Run 20 iterations
+# 5. Build
+ralph 20  # Run 20 iterations
 ```
 
 ## Workflow Overview
@@ -71,8 +78,8 @@ Claude will iteratively ask clarifying questions until requirements stabilize.
 ### Phase 2: Plan (Ralph Loop)
 
 ```bash
-~/.ralph-v2/loop.sh plan      # Full project planning
-~/.ralph-v2/loop.sh plan 5    # Plan with max 5 iterations
+ralph plan      # Full project planning
+ralph plan 5    # Plan with max 5 iterations
 ```
 
 Ralph reads specs, compares against existing code, and generates `IMPLEMENTATION_PLAN.md`.
@@ -80,8 +87,8 @@ Ralph reads specs, compares against existing code, and generates `IMPLEMENTATION
 ### Phase 3: Build (Ralph Loop)
 
 ```bash
-~/.ralph-v2/loop.sh           # Build unlimited
-~/.ralph-v2/loop.sh 20        # Build max 20 iterations
+ralph           # Build unlimited
+ralph 20        # Build max 20 iterations
 ```
 
 Ralph implements one task per iteration, runs tests, commits, and pushes.
@@ -95,10 +102,10 @@ For scoped work on branches:
 git checkout -b ralph/user-auth
 
 # 2. Scoped planning (creates plan for ONLY this work)
-~/.ralph-v2/loop.sh plan-work "user authentication with OAuth"
+ralph plan-work "user authentication with OAuth"
 
 # 3. Build from scoped plan
-~/.ralph-v2/loop.sh 10
+ralph 10
 
 # 4. Create PR when complete
 ```
@@ -175,7 +182,7 @@ Ralph uses parallel subagents for scalability:
 The plan may be incorrect. Regenerate:
 ```bash
 rm IMPLEMENTATION_PLAN.md
-~/.ralph-v2/loop.sh plan
+ralph plan
 ```
 
 ### "Wrong patterns emerging"
@@ -201,12 +208,14 @@ Move status updates to IMPLEMENTATION_PLAN.md. AGENTS.md should only contain ope
 ## Commands Reference
 
 ```bash
-~/.ralph-v2/loop.sh                           # Build mode, unlimited
-~/.ralph-v2/loop.sh 20                        # Build mode, max 20 iterations
-~/.ralph-v2/loop.sh plan                      # Planning mode, unlimited
-~/.ralph-v2/loop.sh plan 5                    # Planning mode, max 5 iterations
-~/.ralph-v2/loop.sh plan-work "description"   # Scoped planning for branch
-~/.ralph-v2/loop.sh plan-work "desc" 3        # Scoped planning, max 3 iterations
+ralph                        # Build mode, unlimited
+ralph 20                     # Build mode, max 20 iterations
+ralph plan                   # Planning mode, unlimited
+ralph plan 5                 # Planning mode, max 5 iterations
+ralph plan-work "desc"       # Scoped planning for branch
+ralph plan-work "desc" 3     # Scoped planning, max 3 iterations
+ralph-init                   # Initialize current directory as Ralph project
+ralph-check                  # Check prerequisites are installed
 ```
 
 ## Environment Variables
