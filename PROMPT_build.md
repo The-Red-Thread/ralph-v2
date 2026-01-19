@@ -38,7 +38,8 @@ After implementing functionality or resolving problems:
 3. If functionality is missing, add it per the application specifications
 4. Create tests verifying acceptance criteria:
    - Conventional tests for behavior and performance
-   - Perceptual quality tests for subjective criteria (see `src/lib` patterns for LLM-as-Judge)
+   - Visual tests for UI appearance (see `src/lib/visual-testing.ts`)
+   - Perceptual quality tests for subjective criteria (see `src/lib/llm-review.ts`)
 
 ---
 
@@ -80,7 +81,9 @@ When the tests pass:
 
 9999999999999999. **Test Requirements:** Required tests derived from acceptance criteria must exist and pass before committing.
 
-99999999999999999. **Perceptual Quality:** For subjective acceptance criteria (tone, aesthetics, UX), use LLM-as-Judge patterns from `src/lib` to create binary pass/fail tests.
+99999999999999999. **Perceptual Quality:** For subjective acceptance criteria (tone, aesthetics, UX), use LLM-as-Judge patterns from `src/lib/llm-review.ts` to create binary pass/fail tests.
+
+999999999999999999. **Visual Verification:** For UI acceptance criteria (layout, responsive design, interactive states, accessibility), use visual testing from `src/lib/visual-testing.ts`. Visual tests must pass before committing UI changes.
 
 ---
 

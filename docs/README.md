@@ -151,7 +151,8 @@ Quality gates that provide feedback:
 - **Tests:** Must pass before commit
 - **Types:** TypeScript/type checking
 - **Lint:** Code style enforcement
-- **LLM-as-Judge:** Perceptual quality tests for subjective criteria
+- **LLM-as-Judge:** Perceptual quality tests for subjective criteria (tone, text quality)
+- **Visual Testing:** UI verification for layout, responsive design, accessibility
 
 ### Acceptance-Driven Testing
 
@@ -279,6 +280,49 @@ Prompts reference `src/*` as the application source code location. This is a con
 ### Standard Library
 
 Place shared utilities in `src/lib/`. Ralph discovers patterns there and reuses them rather than creating ad-hoc implementations.
+
+### Visual Testing
+
+Visual testing provides automated UI verification using `agent-browser` and LLM-as-Judge:
+
+**Prerequisites:**
+```bash
+npm install -g agent-browser  # Browser automation
+# Ensure ANTHROPIC_API_KEY is set
+```
+
+**Usage:**
+```typescript
+import { createVisualTestSession, VIEWPORTS } from './visual-testing';
+
+// Session-based testing
+const session = await createVisualTestSession({ baseUrl: 'http://localhost:3000' });
+await session.navigate('/dashboard');
+await session.assertLayout('Clear visual hierarchy');
+await session.assertResponsive('Content readable on all devices');
+await session.assertAccessibility('WCAG AA compliance');
+await session.close();
+
+// One-off checks
+await assertPageVisual('http://localhost:3000', 'Professional design');
+await assertPageAccessibility('http://localhost:3000');
+```
+
+**Assertion types:**
+- `assertLayout(criteria)` - Visual hierarchy and structure
+- `assertResponsive(criteria, viewports[])` - Multi-viewport testing
+- `assertAccessibility(criteria)` - A11y checks with contrast verification
+- `assertInteractiveState({target, state, criteria})` - Hover/focus/active states
+- `assertBaseline(name, criteria)` - Visual regression against baselines
+
+**Running visual tests:**
+```bash
+# Ensure app is running first
+npm run test:visual
+
+# Update baselines after design approval
+npm run update-baselines
+```
 
 ### Git Tagging
 
