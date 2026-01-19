@@ -110,6 +110,45 @@ ralph 10
 # 4. Create PR when complete
 ```
 
+## Codebase Audit
+
+Ralph can audit your codebase to verify documentation accuracy and identify patterns:
+
+```bash
+# Full audit (documentation + patterns + code quality)
+ralph audit
+
+# Only verify documentation accuracy
+ralph audit --docs-only
+
+# Include pattern analysis
+ralph audit --patterns
+
+# Full analysis with auto-apply safe fixes
+ralph audit --full --apply
+```
+
+**Audit scopes:**
+- `--docs-only`: Verifies AGENTS.md, CLAUDE.md, README.md match actual code
+- `--patterns`: Adds pattern analysis (good patterns, inconsistencies, anti-patterns)
+- `--full`: Complete analysis including code quality concerns
+
+**Output:**
+- `AUDIT_REPORT.md` - Detailed findings with evidence (file:line citations)
+- If `--apply`: Safe documentation fixes applied automatically
+
+**Key principles:**
+- Every finding must cite specific `file:line` with quoted code
+- Conservative: better to miss something than report false positives
+- Good patterns are documented for AGENTS.md
+- Bad patterns are flagged for IMPLEMENTATION_PLAN.md
+
+**When to run:**
+- After major refactoring to sync documentation
+- Before onboarding new team members
+- Periodically to catch documentation drift
+- When Ralph seems to be going in circles (stale docs often the cause)
+
 ## Key Files
 
 ### In Your Project
@@ -215,6 +254,10 @@ ralph plan                   # Planning mode, unlimited
 ralph plan 5                 # Planning mode, max 5 iterations
 ralph plan-work "desc"       # Scoped planning for branch
 ralph plan-work "desc" 3     # Scoped planning, max 3 iterations
+ralph audit                  # Full codebase audit
+ralph audit --docs-only      # Documentation accuracy only
+ralph audit --patterns       # Include pattern analysis
+ralph audit --full --apply   # Full audit with auto-apply fixes
 ralph-init                   # Initialize current directory as Ralph project
 ralph-check                  # Check prerequisites are installed
 ```

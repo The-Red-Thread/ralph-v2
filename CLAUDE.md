@@ -16,6 +16,7 @@ Ralph v2 is an autonomous AI coding agent that uses a simple bash loop to orches
 ├── PROMPT_plan.md          # Planning mode prompt
 ├── PROMPT_build.md         # Building mode prompt
 ├── PROMPT_plan_work.md     # Scoped planning prompt
+├── PROMPT_audit.md         # Audit mode prompt
 ├── install.sh              # Installation script
 ├── templates/              # Project initialization templates
 ├── docs/                   # Documentation
@@ -72,7 +73,7 @@ Higher = more critical invariant.
 1. Syntax check: `bash -n loop.sh`
 2. Test argument parsing with mock functions
 3. Test in a real git repo with specs
-4. Verify all modes: `plan`, `build`, `plan-work`
+4. Verify all modes: `plan`, `build`, `plan-work`, `audit`
 
 ## Making Changes
 
