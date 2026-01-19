@@ -26,25 +26,40 @@ Ralph transforms feature specifications into implemented code through structured
 
 Each iteration = one task = fresh context. The LLM manages its own work via self-updating markdown files.
 
+## Installation
+
+```bash
+# Clone to ~/.ralph-v2
+git clone https://github.com/The-Red-Thread/ralph-v2.git ~/.ralph-v2
+
+# Check prerequisites
+~/.ralph-v2/install.sh check
+
+# Add aliases to your shell (add to ~/.zshrc or ~/.bashrc)
+alias ralph='~/.ralph-v2/loop.sh'
+alias ralph-init='~/.ralph-v2/install.sh init'
+alias ralph-check='~/.ralph-v2/install.sh check'
+
+# Reload shell
+source ~/.zshrc  # or ~/.bashrc
+```
+
 ## Quick Start
 
 ```bash
-# 1. Check prerequisites
-./install.sh check
-
-# 2. Initialize your project
+# 1. Initialize your project
 cd /path/to/your-project
-~/.ralph-v2/install.sh init
+ralph-init
 
-# 3. Edit AGENTS.md with your build/test commands
+# 2. Edit AGENTS.md with your build/test commands
 
-# 4. Create specs in specs/*.md
+# 3. Create specs in specs/*.md
 
-# 5. Plan
-~/.ralph-v2/loop.sh plan
+# 4. Plan
+ralph plan
 
-# 6. Build (20 iterations)
-~/.ralph-v2/loop.sh 20
+# 5. Build (20 iterations)
+ralph 20
 ```
 
 ## Documentation
@@ -77,11 +92,13 @@ cd /path/to/your-project
 ## Commands
 
 ```bash
-./loop.sh                    # Build mode, unlimited iterations
-./loop.sh 20                 # Build mode, max 20 iterations
-./loop.sh plan               # Planning mode
-./loop.sh plan 5             # Planning mode, max 5 iterations
-./loop.sh plan-work "desc"   # Scoped planning for feature branch
+ralph                        # Build mode, unlimited iterations
+ralph 20                     # Build mode, max 20 iterations
+ralph plan                   # Planning mode
+ralph plan 5                 # Planning mode, max 5 iterations
+ralph plan-work "desc"       # Scoped planning for feature branch
+ralph-init                   # Initialize current directory as Ralph project
+ralph-check                  # Check prerequisites are installed
 ```
 
 ## Key Concepts
