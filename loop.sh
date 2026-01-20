@@ -15,6 +15,7 @@
 #   ./loop.sh audit --full                 # Complete analysis
 #   ./loop.sh audit --quick                # Lightweight audit (fewer subagents, lower cost)
 #   ./loop.sh audit --full --apply         # Apply safe updates automatically
+#   ./loop.sh audit --apply-docs           # Apply documentation fixes only
 # =============================================================================
 
 set -euo pipefail
@@ -359,7 +360,7 @@ parse_arguments() {
                     --full)
                         AUDIT_SCOPE="full"
                         ;;
-                    --apply)
+                    --apply|--apply-docs)
                         AUDIT_APPLY="true"
                         ;;
                     --quick)
@@ -367,7 +368,7 @@ parse_arguments() {
                         ;;
                     *)
                         error "Unknown audit flag: $1"
-                        error "Usage: ./loop.sh audit [--docs-only|--patterns|--full] [--quick] [--apply]"
+                        error "Usage: ./loop.sh audit [--docs-only|--patterns|--full] [--quick] [--apply|--apply-docs]"
                         exit 1
                         ;;
                 esac

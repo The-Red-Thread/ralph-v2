@@ -129,6 +129,9 @@ ralph audit --quick
 
 # Full analysis with auto-apply safe fixes
 ralph audit --full --apply
+
+# Apply documentation fixes (alias for --apply)
+ralph audit --apply-docs
 ```
 
 **Audit scopes:**
@@ -143,7 +146,10 @@ ralph audit --full --apply
 
 **Output:**
 - `AUDIT_REPORT.md` - Detailed findings with evidence (file:line citations)
-- If `--apply`: Safe documentation fixes applied automatically
+- If `--apply` or `--apply-docs`:
+  - Safe documentation fixes applied automatically via Edit tool
+  - A commit is created with the applied changes
+  - Summary printed showing what was fixed vs. what needs human review
 
 **Key principles:**
 - Every finding must cite specific `file:line` with quoted code
@@ -267,6 +273,7 @@ ralph audit --docs-only      # Documentation accuracy only
 ralph audit --patterns       # Include pattern analysis
 ralph audit --quick          # Lightweight audit (lower cost)
 ralph audit --full --apply   # Full audit with auto-apply fixes
+ralph audit --apply-docs     # Apply documentation fixes only
 ralph-init                   # Initialize current directory as Ralph project
 ralph-check                  # Check prerequisites are installed
 ```

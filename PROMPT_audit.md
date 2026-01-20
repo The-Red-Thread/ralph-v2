@@ -338,22 +338,41 @@ Only patterns meeting ALL criteria: critical, 5+ examples, not documented, actio
 
 ---
 
-## Phase 5: Safe Updates (if --apply flag)
+## Phase 5: Apply Documentation Fixes (if --apply or --apply-docs flag)
 
-After generating the report, offer to apply safe documentation updates:
+When `${AUDIT_APPLY}` is `true`, automatically apply documentation fixes:
 
-5a. **Safe to auto-apply:**
-   - Correcting file paths that are verifiably wrong
-   - Adding documented commands that exist but aren't listed
-   - Fixing typos in command names
+5a. **Auto-apply these changes (use Edit tool directly):**
+   - ✅ Correcting file paths that are verifiably wrong
+   - ✅ Adding documented commands that exist but aren't listed
+   - ✅ Fixing typos in command names
+   - ✅ Adding missing validation/test commands from package.json
+   - ✅ Updating directory references that have moved
+   - ✅ Adding undocumented patterns that meet the 5+ example threshold
 
-5b. **Requires human review:**
-   - Removing documented features (might be planned, not implemented)
-   - Changing pattern recommendations
-   - Any change to CLAUDE.md behavior instructions
+5b. **Mark with "REQUIRES REVIEW" but do NOT auto-apply:**
+   - ⚠️ Removing documented features (might be planned, not implemented)
+   - ⚠️ Changing pattern recommendations
+   - ⚠️ Any change to CLAUDE.md behavior instructions
+   - ⚠️ Changes that could affect CI/CD or build pipelines
 
-For safe updates, use Edit tool to apply changes directly.
-For others, include in report with "REQUIRES REVIEW" flag.
+5c. **Commit applied changes:**
+   After applying fixes, create a commit with message:
+   ```
+   docs: apply audit fixes to AGENTS.md and documentation
+
+   Applied by Ralph v2 audit --apply
+   ```
+
+5d. **Summary output:**
+   After applying, output a summary:
+   ```
+   Applied N documentation fixes:
+   - path/to/file.md: [description of change]
+   - ...
+
+   Skipped M items requiring human review (see AUDIT_REPORT.md)
+   ```
 
 ---
 
@@ -377,8 +396,11 @@ For others, include in report with "REQUIRES REVIEW" flag.
 ## Exit Condition
 
 1. `AUDIT_REPORT.md` is complete with all findings
-2. If `--apply` flag: safe updates have been applied
-3. Commit changes (report + any applied fixes)
+2. If `--apply` or `--apply-docs` flag:
+   - Safe documentation updates have been applied via Edit tool
+   - Commit created with the applied fixes
+   - Summary of applied changes printed to console
+3. Commit the AUDIT_REPORT.md (separate from fix commit if applicable)
 4. Exit cleanly
 
 If the audit finds no discrepancies, report that clearly—an empty report is valid if documentation is accurate.
