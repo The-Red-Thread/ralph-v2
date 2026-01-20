@@ -113,19 +113,44 @@ For EACH claim found in documentation, verify against actual code:
    - **Not documented:** Not already mentioned in AGENTS.md or CLAUDE.md
    - **Actionable:** A developer could follow the pattern based on your description
 
-   Examples of what to look for:
-   - File naming conventions (e.g., all hooks start with `use-`, all contexts end with `-context`)
-   - Import ordering that's consistently followed
-   - Error handling approach used everywhere
+   Examples of what to look for (adapt to codebase type):
+
+   **Structure & Naming:**
+   - File/folder naming conventions
+   - Module organization patterns
+   - Export patterns (default vs named, barrel files)
+
+   **Code Patterns:**
+   - Error handling approach
+   - Logging conventions
+   - Validation patterns
    - State management patterns
-   - API call patterns
-   - Component composition patterns
+   - Async/await vs promise patterns
+
+   **UI Patterns (if frontend):**
+   - Component structure and prop patterns
+   - Animation/transition conventions
+   - Responsive/breakpoint patterns
+   - Accessibility patterns (aria, focus management)
+   - Loading/error state handling
+
+   **API Patterns (if backend):**
+   - Route/handler structure
+   - Request validation approach
+   - Response formatting
+   - Authentication/authorization patterns
+   - Database query patterns
+
+   **Testing Patterns:**
+   - Test file organization
+   - Mock/fixture patterns
+   - Assertion styles
 
    **DO NOT report:**
    - Subjective style preferences
    - Patterns with fewer than 5 clear examples
    - Anything you're uncertain about
-   - Framework defaults (only project-specific conventions)
+   - Framework/language defaults (only project-specific conventions)
 
 Use an Opus subagent with 'ultrathink' for pattern categorization decisions.
 
