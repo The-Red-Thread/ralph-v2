@@ -212,19 +212,23 @@ init_project() {
         if ! grep -q "# Ralph v2" "$project_dir/.gitignore"; then
             cat >> "$project_dir/.gitignore" << 'EOF'
 
-# Ralph v2
+# Ralph v2 - Working files (local only, not shared)
+IMPLEMENTATION_PLAN.md
+AUDIT_REPORT.md
+.ralph/
 tmp/
 *.tmp
-.ralph-session/
 EOF
             success "Updated .gitignore"
         fi
     else
         cat > "$project_dir/.gitignore" << 'EOF'
-# Ralph v2
+# Ralph v2 - Working files (local only, not shared)
+IMPLEMENTATION_PLAN.md
+AUDIT_REPORT.md
+.ralph/
 tmp/
 *.tmp
-.ralph-session/
 
 # Dependencies
 node_modules/

@@ -16,6 +16,7 @@
 #   ./loop.sh audit --quick                # Lightweight audit (fewer subagents, lower cost)
 #   ./loop.sh audit --full --apply         # Apply safe updates automatically
 #   ./loop.sh audit --apply-docs           # Apply documentation fixes only
+#   ./loop.sh done                         # Archive working files after feature complete
 # =============================================================================
 
 set -euo pipefail
@@ -305,6 +306,68 @@ push_changes() {
 }
 
 # =============================================================================
+# ARCHIVE FUNCTION
+# =============================================================================
+
+archive_working_files() {
+    local branch=$(get_current_branch)
+    local timestamp=$(date '+%Y%m%d_%H%M%S')
+    local archive_dir=".ralph/archive/${branch}_${timestamp}"
+    local archived_count=0
+
+    log "Archiving working files for branch: $branch"
+
+    # Create archive directory
+    mkdir -p "$archive_dir"
+
+    # Archive IMPLEMENTATION_PLAN.md if exists
+    if [ -f "IMPLEMENTATION_PLAN.md" ]; then
+        mv "IMPLEMENTATION_PLAN.md" "$archive_dir/"
+        success "Archived IMPLEMENTATION_PLAN.md"
+        archived_count=$((archived_count + 1))
+    fi
+
+    # Archive AUDIT_REPORT.md if exists
+    if [ -f "AUDIT_REPORT.md" ]; then
+        mv "AUDIT_REPORT.md" "$archive_dir/"
+        success "Archived AUDIT_REPORT.md"
+        archived_count=$((archived_count + 1))
+    fi
+
+    if [ "$archived_count" -eq 0 ]; then
+        warn "No working files to archive"
+        rmdir "$archive_dir" 2>/dev/null || true
+        rmdir ".ralph/archive" 2>/dev/null || true
+        return 0
+    fi
+
+    # Create a summary file
+    cat > "$archive_dir/ARCHIVE_INFO.md" << EOF
+# Archive Info
+
+- **Branch:** $branch
+- **Archived:** $(date '+%Y-%m-%d %H:%M:%S')
+- **Files:** $archived_count
+
+## Contents
+$(ls -1 "$archive_dir" | grep -v ARCHIVE_INFO.md | sed 's/^/- /')
+EOF
+
+    echo ""
+    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                 RALPH v2 - Archive Complete                   ║${NC}"
+    echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    printf "${GREEN}║${NC}  Branch:    ${BLUE}%-50s${NC} ${GREEN}║${NC}\n" "$branch"
+    printf "${GREEN}║${NC}  Files:     %-50s ${GREEN}║${NC}\n" "$archived_count archived"
+    printf "${GREEN}║${NC}  Location:  %-50s ${GREEN}║${NC}\n" "$archive_dir"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+
+    log "Working files archived to: $archive_dir"
+    log "Ready for next feature. Run 'ralph plan' or 'ralph plan-work' to start."
+}
+
+# =============================================================================
 # MODE PARSING
 # =============================================================================
 
@@ -375,13 +438,16 @@ parse_arguments() {
                 shift
             done
             ;;
+        done)
+            MODE="done"
+            ;;
         *)
             if [[ "$1" =~ ^[0-9]+$ ]]; then
                 # Number argument = build mode with iteration limit
                 MAX_ITERATIONS="$1"
             else
                 error "Unknown argument: $1"
-                error "Usage: ./loop.sh [plan|plan-work \"desc\"|N]"
+                error "Usage: ./loop.sh [plan|plan-work \"desc\"|audit|done|N]"
                 exit 1
             fi
             ;;
@@ -443,6 +509,13 @@ run_iteration() {
 
 main() {
     parse_arguments "$@"
+
+    # Handle 'done' mode separately (no loop needed)
+    if [ "$MODE" = "done" ]; then
+        validate_git_repo
+        archive_working_files
+        exit 0
+    fi
 
     # Display startup banner
     local project_name=$(get_project_name)

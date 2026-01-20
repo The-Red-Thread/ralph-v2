@@ -108,7 +108,12 @@ ralph plan-work "user authentication with OAuth"
 ralph 10
 
 # 4. Create PR when complete
+
+# 5. Archive working files (optional but recommended)
+ralph done
 ```
+
+The `ralph done` command archives `IMPLEMENTATION_PLAN.md` and `AUDIT_REPORT.md` to `.ralph/archive/` so you start fresh on the next feature.
 
 ## Codebase Audit
 
@@ -165,14 +170,24 @@ ralph audit --apply-docs
 
 ## Key Files
 
-### In Your Project
+### In Your Project (Committed)
 
 | File | Purpose |
 |------|---------|
 | `AGENTS.md` | Operational guide (build commands, validation, patterns) |
-| `IMPLEMENTATION_PLAN.md` | Task list managed by Ralph |
+| `CLAUDE.md` | Project-specific instructions for Claude |
 | `AUDIENCE_JTBD.md` | (Optional) User personas and jobs-to-be-done |
-| `specs/*.md` | Requirement specifications |
+| `specs/*.md` | Requirement specifications (grow over time) |
+
+### Working Files (Gitignored - Local Only)
+
+| File | Purpose |
+|------|---------|
+| `IMPLEMENTATION_PLAN.md` | Task list for current work session |
+| `AUDIT_REPORT.md` | Point-in-time audit findings |
+| `.ralph/archive/` | Archived working files from completed features |
+
+Working files are **not committed** to avoid conflicts when multiple people use Ralph on the same project. Each person has their own local copy.
 
 ### In Ralph v2
 
@@ -274,6 +289,7 @@ ralph audit --patterns       # Include pattern analysis
 ralph audit --quick          # Lightweight audit (lower cost)
 ralph audit --full --apply   # Full audit with auto-apply fixes
 ralph audit --apply-docs     # Apply documentation fixes only
+ralph done                   # Archive working files after feature complete
 ralph-init                   # Initialize current directory as Ralph project
 ralph-check                  # Check prerequisites are installed
 ```
