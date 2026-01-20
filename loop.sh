@@ -394,11 +394,23 @@ parse_arguments() {
 run_iteration() {
     local prompt_file="$1"
     local mode="$2"
+    local elapsed=$(get_session_duration)
+    local timestamp=$(date '+%H:%M:%S')
+    local branch=$(get_current_branch)
+    local max_info=""
+
+    if [ "$MAX_ITERATIONS" -gt 0 ]; then
+        max_info=" of $MAX_ITERATIONS"
+    fi
 
     echo ""
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}  ITERATION $ITERATION │ MODE: $mode │ BRANCH: $(get_current_branch)${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}  ${GREEN}▶ ITERATION ${ITERATION}${max_info}${NC}                                          ${CYAN}║${NC}"
+    echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${CYAN}║${NC}  Mode: ${YELLOW}${mode}${NC}                                                  ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}  Branch: ${BLUE}${branch}${NC}"
+    echo -e "${CYAN}║${NC}  Started: ${timestamp}  │  Elapsed: ${elapsed}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
     if [ "$mode" = "plan-work" ]; then
