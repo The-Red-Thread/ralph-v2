@@ -25,6 +25,12 @@ npm run lint
 
 # All validations
 npm run validate
+
+# Visual tests (requires app running)
+npm run test:visual
+
+# Update visual baselines after design approval
+npm run update-baselines
 ```
 
 ## Operational Notes

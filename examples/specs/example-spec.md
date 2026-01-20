@@ -77,6 +77,47 @@ describe('Color extraction quality', () => {
 });
 ```
 
+### Visual Tests (UI Verification)
+
+```typescript
+// Using visual-testing library
+describe('Color palette UI', () => {
+  let session: VisualTestContext;
+
+  beforeAll(async () => {
+    session = await createVisualTestSession({ baseUrl: 'http://localhost:3000' });
+  });
+
+  afterAll(async () => {
+    await session.close();
+  });
+
+  it('displays palette with clear visual hierarchy', async () => {
+    await session.navigate('/palette');
+    const result = await session.assertLayout(
+      'Color swatches prominently displayed; hex codes readable; copy buttons discoverable'
+    );
+    expect(result.pass).toBe(true);
+  });
+
+  it('is responsive across viewports', async () => {
+    await session.navigate('/palette');
+    const results = await session.assertResponsive(
+      'Swatches stack on mobile; codes remain readable; touch targets adequate'
+    );
+    results.forEach(r => expect(r.pass).toBe(true));
+  });
+
+  it('meets accessibility requirements', async () => {
+    await session.navigate('/palette');
+    const result = await session.assertAccessibility(
+      'Color values have sufficient contrast; swatches have accessible names'
+    );
+    expect(result.pass).toBe(true);
+  });
+});
+```
+
 ## Technical Notes
 
 ### Suggested Approach

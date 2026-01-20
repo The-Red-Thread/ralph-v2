@@ -192,6 +192,21 @@ init_project() {
     mkdir -p "$project_dir/specs"
     success "Created specs/ directory"
 
+    # Copy library patterns to src/lib
+    mkdir -p "$project_dir/src/lib"
+    if [ ! -f "$project_dir/src/lib/llm-review.ts" ]; then
+        cp "$RALPH_DIR/examples/llm-review/llm-review.ts" "$project_dir/src/lib/llm-review.ts"
+        success "Created src/lib/llm-review.ts"
+    else
+        log "src/lib/llm-review.ts already exists. Skipping."
+    fi
+    if [ ! -f "$project_dir/src/lib/visual-testing.ts" ]; then
+        cp "$RALPH_DIR/examples/visual-testing/visual-testing.ts" "$project_dir/src/lib/visual-testing.ts"
+        success "Created src/lib/visual-testing.ts"
+    else
+        log "src/lib/visual-testing.ts already exists. Skipping."
+    fi
+
     # Create .gitignore additions if not present
     if [ -f "$project_dir/.gitignore" ]; then
         if ! grep -q "# Ralph v2" "$project_dir/.gitignore"; then

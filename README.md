@@ -78,6 +78,7 @@ ralph 20
 ├── PROMPT_plan.md          # Planning mode prompt
 ├── PROMPT_build.md         # Building mode prompt
 ├── PROMPT_plan_work.md     # Scoped planning (feature branches)
+├── PROMPT_audit.md         # Codebase audit mode prompt
 ├── install.sh              # Installation and project init
 ├── templates/              # Files copied to new projects
 │   ├── AGENTS.md           # Operational guide template
@@ -86,7 +87,8 @@ ralph 20
 ├── docs/                   # Documentation
 └── examples/               # Example specs and libraries
     ├── specs/              # Example specification format
-    └── llm-review/         # LLM-as-Judge library template
+    ├── llm-review/         # LLM-as-Judge library template
+    └── visual-testing/     # Visual testing library template
 ```
 
 ## Commands
@@ -97,6 +99,8 @@ ralph 20                     # Build mode, max 20 iterations
 ralph plan                   # Planning mode
 ralph plan 5                 # Planning mode, max 5 iterations
 ralph plan-work "desc"       # Scoped planning for feature branch
+ralph audit                  # Audit documentation and patterns
+ralph audit --quick          # Lightweight audit (lower cost)
 ralph-init                   # Initialize current directory as Ralph project
 ralph-check                  # Check prerequisites are installed
 ```

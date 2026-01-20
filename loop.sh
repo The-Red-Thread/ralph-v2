@@ -9,6 +9,12 @@
 #   ./loop.sh plan 5       # Planning mode, max 5 iterations
 #   ./loop.sh plan-work "description"      # Scoped planning for work branch
 #   ./loop.sh plan-work "description" 5    # Scoped planning, max 5 iterations
+#   ./loop.sh audit                        # Audit mode (--full by default)
+#   ./loop.sh audit --docs-only            # Only verify documentation accuracy
+#   ./loop.sh audit --patterns             # Include pattern analysis
+#   ./loop.sh audit --full                 # Complete analysis
+#   ./loop.sh audit --quick                # Lightweight audit (fewer subagents, lower cost)
+#   ./loop.sh audit --full --apply         # Apply safe updates automatically
 # =============================================================================
 
 set -euo pipefail
@@ -21,6 +27,9 @@ RALPH_DIR="${RALPH_DIR:-$HOME/.ralph-v2}"
 CONFIG_FILE="${CONFIG_FILE:-$HOME/.config/ralph/config}"
 ITERATION=0
 SESSION_START=$(date +%s)
+AUDIT_SCOPE="full"
+AUDIT_APPLY="false"
+AUDIT_QUICK="false"
 
 # Load config if exists (for SLACK_WEBHOOK_URL, etc.)
 if [ -f "$CONFIG_FILE" ]; then
@@ -332,6 +341,39 @@ parse_arguments() {
                 MAX_ITERATIONS=5  # Default for scoped planning
             fi
             ;;
+        audit)
+            MODE="audit"
+            PROMPT_FILE="$RALPH_DIR/PROMPT_audit.md"
+            MAX_ITERATIONS=1  # Audit runs once
+            AUDIT_SCOPE="full"  # Default scope
+            shift  # Remove 'audit' from arguments
+            # Parse audit flags
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --docs-only)
+                        AUDIT_SCOPE="docs-only"
+                        ;;
+                    --patterns)
+                        AUDIT_SCOPE="patterns"
+                        ;;
+                    --full)
+                        AUDIT_SCOPE="full"
+                        ;;
+                    --apply)
+                        AUDIT_APPLY="true"
+                        ;;
+                    --quick)
+                        AUDIT_QUICK="true"
+                        ;;
+                    *)
+                        error "Unknown audit flag: $1"
+                        error "Usage: ./loop.sh audit [--docs-only|--patterns|--full] [--quick] [--apply]"
+                        exit 1
+                        ;;
+                esac
+                shift
+            done
+            ;;
         *)
             if [[ "$1" =~ ^[0-9]+$ ]]; then
                 # Number argument = build mode with iteration limit
@@ -352,17 +394,37 @@ parse_arguments() {
 run_iteration() {
     local prompt_file="$1"
     local mode="$2"
+    local elapsed=$(get_session_duration)
+    local timestamp=$(date '+%H:%M:%S')
+    local branch=$(get_current_branch)
+    local max_info=""
+
+    if [ "$MAX_ITERATIONS" -gt 0 ]; then
+        max_info=" of $MAX_ITERATIONS"
+    fi
 
     echo ""
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}  ITERATION $ITERATION │ MODE: $mode │ BRANCH: $(get_current_branch)${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}  ${GREEN}▶ ITERATION ${ITERATION}${max_info}${NC}                                          ${CYAN}║${NC}"
+    echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${CYAN}║${NC}  Mode: ${YELLOW}${mode}${NC}                                                  ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}  Branch: ${BLUE}${branch}${NC}"
+    echo -e "${CYAN}║${NC}  Started: ${timestamp}  │  Elapsed: ${elapsed}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
     if [ "$mode" = "plan-work" ]; then
         log "Work scope: $WORK_SCOPE"
         export WORK_SCOPE
         envsubst '${WORK_SCOPE}' < "$prompt_file" | claude -p \
+            --dangerously-skip-permissions \
+            --output-format=stream-json \
+            --model opus \
+            --verbose
+    elif [ "$mode" = "audit" ]; then
+        log "Audit scope: $AUDIT_SCOPE (quick: $AUDIT_QUICK, apply: $AUDIT_APPLY)"
+        export AUDIT_SCOPE AUDIT_APPLY AUDIT_QUICK
+        envsubst '${AUDIT_SCOPE} ${AUDIT_APPLY} ${AUDIT_QUICK}' < "$prompt_file" | claude -p \
             --dangerously-skip-permissions \
             --output-format=stream-json \
             --model opus \
@@ -388,6 +450,11 @@ main() {
     echo -e "${GREEN}║  Max iterations: $(printf '%-43s' "${MAX_ITERATIONS:-unlimited}")║${NC}"
     if [ -n "$WORK_SCOPE" ]; then
         echo -e "${GREEN}║  Work scope: $(printf '%-47s' "${WORK_SCOPE:0:47}")║${NC}"
+    fi
+    if [ "$MODE" = "audit" ]; then
+        echo -e "${GREEN}║  Audit scope: $(printf '%-46s' "$AUDIT_SCOPE")║${NC}"
+        echo -e "${GREEN}║  Quick mode: $(printf '%-47s' "$AUDIT_QUICK")║${NC}"
+        echo -e "${GREEN}║  Auto-apply: $(printf '%-47s' "$AUDIT_APPLY")║${NC}"
     fi
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""

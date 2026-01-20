@@ -110,6 +110,53 @@ ralph 10
 # 4. Create PR when complete
 ```
 
+## Codebase Audit
+
+Ralph can audit your codebase to verify documentation accuracy and identify patterns:
+
+```bash
+# Full audit (documentation + patterns + code quality)
+ralph audit
+
+# Only verify documentation accuracy
+ralph audit --docs-only
+
+# Include pattern analysis
+ralph audit --patterns
+
+# Lightweight audit (fewer subagents, lower cost)
+ralph audit --quick
+
+# Full analysis with auto-apply safe fixes
+ralph audit --full --apply
+```
+
+**Audit scopes:**
+- `--docs-only`: Verifies AGENTS.md, CLAUDE.md, README.md match actual code
+- `--patterns`: Adds pattern analysis (good patterns, inconsistencies, anti-patterns)
+- `--full`: Complete analysis including code quality concerns (default)
+
+**Cost optimization:**
+- `--quick`: Uses ~10 subagents instead of ~100, prioritizes high-impact checks
+- `--docs-only --quick`: Minimal cost, just verifies documentation accuracy
+- Full audit on large codebases can cost $10-50+ depending on size
+
+**Output:**
+- `AUDIT_REPORT.md` - Detailed findings with evidence (file:line citations)
+- If `--apply`: Safe documentation fixes applied automatically
+
+**Key principles:**
+- Every finding must cite specific `file:line` with quoted code
+- Conservative: better to miss something than report false positives
+- Good patterns are documented for AGENTS.md
+- Bad patterns are flagged for IMPLEMENTATION_PLAN.md
+
+**When to run:**
+- After major refactoring to sync documentation
+- Before onboarding new team members
+- Periodically to catch documentation drift
+- When Ralph seems to be going in circles (stale docs often the cause)
+
 ## Key Files
 
 ### In Your Project
@@ -151,7 +198,8 @@ Quality gates that provide feedback:
 - **Tests:** Must pass before commit
 - **Types:** TypeScript/type checking
 - **Lint:** Code style enforcement
-- **LLM-as-Judge:** Perceptual quality tests for subjective criteria
+- **LLM-as-Judge:** Perceptual quality tests for subjective criteria (tone, text quality)
+- **Visual Testing:** UI verification for layout, responsive design, accessibility
 
 ### Acceptance-Driven Testing
 
@@ -214,6 +262,11 @@ ralph plan                   # Planning mode, unlimited
 ralph plan 5                 # Planning mode, max 5 iterations
 ralph plan-work "desc"       # Scoped planning for branch
 ralph plan-work "desc" 3     # Scoped planning, max 3 iterations
+ralph audit                  # Full codebase audit
+ralph audit --docs-only      # Documentation accuracy only
+ralph audit --patterns       # Include pattern analysis
+ralph audit --quick          # Lightweight audit (lower cost)
+ralph audit --full --apply   # Full audit with auto-apply fixes
 ralph-init                   # Initialize current directory as Ralph project
 ralph-check                  # Check prerequisites are installed
 ```
@@ -279,6 +332,49 @@ Prompts reference `src/*` as the application source code location. This is a con
 ### Standard Library
 
 Place shared utilities in `src/lib/`. Ralph discovers patterns there and reuses them rather than creating ad-hoc implementations.
+
+### Visual Testing
+
+Visual testing provides automated UI verification using `agent-browser` and LLM-as-Judge:
+
+**Prerequisites:**
+```bash
+npm install -g agent-browser  # Browser automation
+# Ensure ANTHROPIC_API_KEY is set
+```
+
+**Usage:**
+```typescript
+import { createVisualTestSession, VIEWPORTS } from './visual-testing';
+
+// Session-based testing
+const session = await createVisualTestSession({ baseUrl: 'http://localhost:3000' });
+await session.navigate('/dashboard');
+await session.assertLayout('Clear visual hierarchy');
+await session.assertResponsive('Content readable on all devices');
+await session.assertAccessibility('WCAG AA compliance');
+await session.close();
+
+// One-off checks
+await assertPageVisual('http://localhost:3000', 'Professional design');
+await assertPageAccessibility('http://localhost:3000');
+```
+
+**Assertion types:**
+- `assertLayout(criteria)` - Visual hierarchy and structure
+- `assertResponsive(criteria, viewports[])` - Multi-viewport testing
+- `assertAccessibility(criteria)` - A11y checks with contrast verification
+- `assertInteractiveState({target, state, criteria})` - Hover/focus/active states
+- `assertBaseline(name, criteria)` - Visual regression against baselines
+
+**Running visual tests:**
+```bash
+# Ensure app is running first
+npm run test:visual
+
+# Update baselines after design approval
+npm run update-baselines
+```
 
 ### Git Tagging
 
