@@ -403,13 +403,15 @@ run_iteration() {
         max_info=" of $MAX_ITERATIONS"
     fi
 
+    local iter_display="▶ ITERATION ${ITERATION}${max_info}"
+
     echo ""
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${NC}  ${GREEN}▶ ITERATION ${ITERATION}${max_info}${NC}                                          ${CYAN}║${NC}"
+    printf "${CYAN}║${NC}  ${GREEN}%-60s${NC} ${CYAN}║${NC}\n" "$iter_display"
     echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${CYAN}║${NC}  Mode: ${YELLOW}${mode}${NC}                                                  ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC}  Branch: ${BLUE}${branch}${NC}"
-    echo -e "${CYAN}║${NC}  Started: ${timestamp}  │  Elapsed: ${elapsed}"
+    printf "${CYAN}║${NC}  Mode:    ${YELLOW}%-51s${NC} ${CYAN}║${NC}\n" "$mode"
+    printf "${CYAN}║${NC}  Branch:  ${BLUE}%-51s${NC} ${CYAN}║${NC}\n" "$branch"
+    printf "${CYAN}║${NC}  Started: %-18s  Elapsed: %-19s ${CYAN}║${NC}\n" "$timestamp" "$elapsed"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
@@ -442,19 +444,28 @@ main() {
     parse_arguments "$@"
 
     # Display startup banner
+    local project_name=$(get_project_name)
+    local branch=$(get_current_branch)
+    local max_iter_display="${MAX_ITERATIONS:-unlimited}"
+    if [ "$MAX_ITERATIONS" -eq 0 ] 2>/dev/null; then
+        max_iter_display="unlimited"
+    fi
+
     echo ""
     echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║                    RALPH v2 - Starting                        ║${NC}"
     echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${GREEN}║  Mode: $(printf '%-54s' "$MODE")║${NC}"
-    echo -e "${GREEN}║  Max iterations: $(printf '%-43s' "${MAX_ITERATIONS:-unlimited}")║${NC}"
+    printf "${GREEN}║${NC}  Project:        ${CYAN}%-44s${NC} ${GREEN}║${NC}\n" "$project_name"
+    printf "${GREEN}║${NC}  Branch:         ${BLUE}%-44s${NC} ${GREEN}║${NC}\n" "$branch"
+    printf "${GREEN}║${NC}  Mode:           ${YELLOW}%-44s${NC} ${GREEN}║${NC}\n" "$MODE"
+    printf "${GREEN}║${NC}  Max iterations: %-44s ${GREEN}║${NC}\n" "$max_iter_display"
     if [ -n "$WORK_SCOPE" ]; then
-        echo -e "${GREEN}║  Work scope: $(printf '%-47s' "${WORK_SCOPE:0:47}")║${NC}"
+        printf "${GREEN}║${NC}  Work scope:     %-44s ${GREEN}║${NC}\n" "${WORK_SCOPE:0:44}"
     fi
     if [ "$MODE" = "audit" ]; then
-        echo -e "${GREEN}║  Audit scope: $(printf '%-46s' "$AUDIT_SCOPE")║${NC}"
-        echo -e "${GREEN}║  Quick mode: $(printf '%-47s' "$AUDIT_QUICK")║${NC}"
-        echo -e "${GREEN}║  Auto-apply: $(printf '%-47s' "$AUDIT_APPLY")║${NC}"
+        printf "${GREEN}║${NC}  Audit scope:    %-44s ${GREEN}║${NC}\n" "$AUDIT_SCOPE"
+        printf "${GREEN}║${NC}  Quick mode:     %-44s ${GREEN}║${NC}\n" "$AUDIT_QUICK"
+        printf "${GREEN}║${NC}  Auto-apply:     %-44s ${GREEN}║${NC}\n" "$AUDIT_APPLY"
     fi
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
@@ -521,13 +532,20 @@ main() {
 
     local project_name=$(get_project_name)
     local duration=$(get_session_duration)
+    local branch=$(get_current_branch)
+    local commit=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
 
     echo ""
     echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                 RALPH v2 - Session Complete                   ║${NC}"
+    echo -e "${GREEN}║               RALPH v2 - Session Complete                     ║${NC}"
     echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${GREEN}║  Total iterations: $(printf '%-41s' "$ITERATION")║${NC}"
-    echo -e "${GREEN}║  Duration: $(printf '%-50s' "$duration")║${NC}"
+    printf "${GREEN}║${NC}  Project:      ${CYAN}%-46s${NC} ${GREEN}║${NC}\n" "$project_name"
+    printf "${GREEN}║${NC}  Branch:       ${BLUE}%-46s${NC} ${GREEN}║${NC}\n" "$branch"
+    printf "${GREEN}║${NC}  Mode:         ${YELLOW}%-46s${NC} ${GREEN}║${NC}\n" "$MODE"
+    echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    printf "${GREEN}║${NC}  Iterations:   %-46s ${GREEN}║${NC}\n" "$ITERATION"
+    printf "${GREEN}║${NC}  Duration:     %-46s ${GREEN}║${NC}\n" "$duration"
+    printf "${GREEN}║${NC}  Last commit:  %-46s ${GREEN}║${NC}\n" "$commit"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 
     # Send final notifications
