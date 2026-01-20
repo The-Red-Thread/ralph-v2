@@ -16,6 +16,7 @@
 #   ./loop.sh audit --quick                # Lightweight audit (fewer subagents, lower cost)
 #   ./loop.sh audit --full --apply         # Apply safe updates automatically
 #   ./loop.sh audit --apply-docs           # Apply documentation fixes only
+#   ./loop.sh audit --backpressure         # Analyze testing gaps and feedback loops
 #   ./loop.sh done                         # Archive working files after feature complete
 # =============================================================================
 
@@ -429,9 +430,13 @@ parse_arguments() {
                     --quick)
                         AUDIT_QUICK="true"
                         ;;
+                    --backpressure)
+                        AUDIT_SCOPE="backpressure"
+                        PROMPT_FILE="$RALPH_DIR/PROMPT_audit_backpressure.md"
+                        ;;
                     *)
                         error "Unknown audit flag: $1"
-                        error "Usage: ./loop.sh audit [--docs-only|--patterns|--full] [--quick] [--apply|--apply-docs]"
+                        error "Usage: ./loop.sh audit [--docs-only|--patterns|--full|--backpressure] [--quick] [--apply|--apply-docs]"
                         exit 1
                         ;;
                 esac

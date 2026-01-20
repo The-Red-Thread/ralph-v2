@@ -13,6 +13,7 @@ flowchart TD
 
     Q2 -->|Build a feature| Q3{Working on<br/>main branch?}
     Q2 -->|Check/fix docs| AUDIT_PATH
+    Q2 -->|Analyze testing gaps| BACKPRESSURE[ralph audit --backpressure]
     Q2 -->|Cleanup after<br/>feature done| DONE[ralph done]
 
     Q3 -->|Yes, main branch| PLAN[ralph plan]
@@ -47,6 +48,14 @@ flowchart TD
     Q5 -->|No, manual| MANUAL[Edit docs manually]
     FIXED --> END
     MANUAL --> END
+
+    %% Backpressure path
+    BACKPRESSURE --> BP_REPORT[Review BACKPRESSURE_REPORT.md]
+    BP_REPORT --> BP_ACTION{Action?}
+    BP_ACTION -->|Set up missing tests| SETUP[Follow setup instructions]
+    BP_ACTION -->|Update AGENTS.md| UPDATE_AGENTS[Copy validation matrix]
+    SETUP --> END
+    UPDATE_AGENTS --> END
 ```
 
 ---
@@ -77,6 +86,12 @@ START HERE
     │   │
     │   └── Auto-fix documentation issues
     │       └── ralph audit --apply-docs
+    │
+    ├── Do you want to ANALYZE testing gaps?
+    │   └── ralph audit --backpressure
+    │       → Review BACKPRESSURE_REPORT.md
+    │       → Set up missing test infrastructure
+    │       → Update AGENTS.md with validation matrix
     │
     └── Done with a feature?
         └── ralph done (archives working files)
@@ -155,6 +170,18 @@ ralph audit --quick --docs-only
 # Still generates AUDIT_REPORT.md but costs less
 ```
 
+### Scenario 7: Improve Testing Strategy
+```bash
+# Analyze testing gaps and get recommendations
+ralph audit --backpressure
+
+# Review the report
+cat BACKPRESSURE_REPORT.md
+
+# Follow the setup instructions to add missing tests
+# Copy the validation matrix to AGENTS.md
+```
+
 ---
 
 ## Command Cheat Sheet
@@ -169,6 +196,7 @@ ralph audit --quick --docs-only
 | Quick doc check | `ralph audit --docs-only --quick` |
 | Full audit | `ralph audit` |
 | Auto-fix docs | `ralph audit --apply-docs` |
+| Analyze testing gaps | `ralph audit --backpressure` |
 | Feature complete | `ralph done` |
 | Check prerequisites | `ralph-check` |
 
@@ -192,6 +220,8 @@ ralph audit   →                                    AUDIT_REPORT.md
 --apply-docs  →     AGENTS.md (fixed)
                     CLAUDE.md (fixed)
 
+--backpressure →                                   BACKPRESSURE_REPORT.md
+
 ralph done    →                                    → .ralph-v2/archive/
 ```
 
@@ -205,6 +235,7 @@ ralph done    →                                    → .ralph-v2/archive/
 | `ralph audit --docs-only` | $$ | Thorough doc verification |
 | `ralph audit --patterns` | $$$ | Need pattern analysis |
 | `ralph audit --full` | $$$$ | Complete analysis |
+| `ralph audit --backpressure` | $$$ | Analyze testing gaps |
 | `ralph plan` | $$$ | Starting new project phase |
 | `ralph plan-work` | $$ | Scoped feature work |
 | `ralph N` (per iteration) | $$ | Building |

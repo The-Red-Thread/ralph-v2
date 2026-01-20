@@ -137,12 +137,16 @@ ralph audit --full --apply
 
 # Apply documentation fixes (alias for --apply)
 ralph audit --apply-docs
+
+# Analyze testing gaps and feedback loops
+ralph audit --backpressure
 ```
 
 **Audit scopes:**
 - `--docs-only`: Verifies AGENTS.md, CLAUDE.md, README.md match actual code
 - `--patterns`: Adds pattern analysis (good patterns, inconsistencies, anti-patterns)
 - `--full`: Complete analysis including code quality concerns (default)
+- `--backpressure`: Analyzes testing infrastructure and recommends task-specific validation
 
 **Cost optimization:**
 - `--quick`: Uses ~10 subagents instead of ~100, prioritizes high-impact checks
@@ -167,6 +171,48 @@ ralph audit --apply-docs
 - Before onboarding new team members
 - Periodically to catch documentation drift
 - When Ralph seems to be going in circles (stale docs often the cause)
+
+## Backpressure Audit
+
+Analyze your testing infrastructure and identify gaps in feedback loops:
+
+```bash
+ralph audit --backpressure
+```
+
+**What it analyzes:**
+- **Code categories**: UI components, API routes, hooks, utilities, etc.
+- **Existing tests**: Unit tests, integration tests, E2E, visual tests
+- **CI configuration**: What validations run on push/PR
+- **Feedback loop speed**: What runs on save vs commit vs push
+
+**Output:** `BACKPRESSURE_REPORT.md` with:
+- Coverage analysis by code category
+- Gap identification (code without tests)
+- Task-specific validation recommendations
+- Ready-to-copy AGENTS.md additions
+- Setup instructions for missing infrastructure
+
+**Example output:**
+```markdown
+| Category | Files | Tests | Coverage | Grade |
+|----------|------:|------:|---------:|-------|
+| UI Components | 47 | 3 | 6% | D |
+| API Routes | 12 | 0 | 0% | F |
+| Hooks | 9 | 2 | 22% | D |
+| Utilities | 8 | 5 | 62% | B |
+
+## Recommendations
+1. Set up visual testing for UI components
+2. Add integration tests for API routes
+3. Add unit tests for hooks
+```
+
+**When to run:**
+- When setting up a new project
+- When test coverage feels inadequate
+- When Ralph keeps introducing regressions
+- Before adding new team members to understand testing expectations
 
 ## Key Files
 
@@ -289,6 +335,7 @@ ralph audit --patterns       # Include pattern analysis
 ralph audit --quick          # Lightweight audit (lower cost)
 ralph audit --full --apply   # Full audit with auto-apply fixes
 ralph audit --apply-docs     # Apply documentation fixes only
+ralph audit --backpressure   # Analyze testing gaps and feedback loops
 ralph done                   # Archive working files after feature complete
 ralph-init                   # Initialize current directory as Ralph project
 ralph-check                  # Check prerequisites are installed
