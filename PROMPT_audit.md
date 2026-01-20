@@ -25,27 +25,38 @@ If you cannot provide a specific file path and line number with quoted code, **d
 
 ---
 
-## Phase 1: Documentation Inventory
+## Phase 1: Documentation Discovery & Inventory
 
-Systematically locate and read ALL documentation files:
+Systematically discover and read ALL documentation files across the entire repository:
 
-1a. **Project documentation files:**
-   - `AGENTS.md` - Operational guide (build commands, validation, patterns)
-   - `CLAUDE.md` - AI assistant instructions
-   - `README.md` - Project overview
-   - `.claude/*` - Claude-specific configurations
+1a. **Discover all documentation files** using glob patterns:
+   ```
+   **/AGENTS.md        # All AGENTS.md files (root and nested)
+   **/CLAUDE.md        # All CLAUDE.md files
+   **/README.md        # All README.md files
+   **/.claude/*        # Claude-specific configurations
+   **/package.json     # All package.json files (for build commands)
+   **/Makefile         # All Makefiles
+   **/tsconfig.json    # TypeScript configs
+   **/pyproject.toml   # Python project configs
+   ```
 
-1b. **Record each file's claims** about:
+1b. **For each discovered file, record its location and claims** about:
    - Build/run commands
    - Test commands
    - Validation commands
-   - Directory structure
+   - Directory structure (relative to that file's location)
    - Key patterns and conventions
    - Dependencies and requirements
 
+1c. **Track documentation hierarchy:**
+   - Root-level docs apply to entire repo
+   - Nested docs (e.g., `packages/api/AGENTS.md`) apply to that subtree
+   - Note any conflicts between parent and child documentation
+
 **Subagent guidance:**
-- Quick mode: Read documentation files sequentially (no subagents)
-- Normal mode: Use up to 50 parallel Sonnet subagents
+- Quick mode: Discover files first, then read sequentially (no subagents)
+- Normal mode: Use up to 50 parallel Sonnet subagents to read all discovered files
 
 ---
 
@@ -110,27 +121,47 @@ Scope: [docs-only | patterns | full]
 
 ## Executive Summary
 
+- Documentation files discovered: N
 - Documentation files audited: N
 - Claims verified: N
 - Discrepancies found: N
 - Patterns identified: N (good: N, inconsistent: N, problematic: N)
 
+### Files Discovered
+[List all discovered documentation files with paths]
+
 ---
 
 ## Documentation Accuracy
 
-### AGENTS.md
+### Root Documentation
+
+#### ./AGENTS.md
 
 | Claim | Status | Evidence |
 |-------|--------|----------|
 | `npm test` runs tests | ✅ Verified | package.json:15 |
 | `src/lib` contains utilities | ⚠️ Outdated | Directory is `lib/` not `src/lib` |
 
-#### Recommended Updates
+##### Recommended Updates
 [Specific text changes with before/after]
 
-### CLAUDE.md
+#### ./CLAUDE.md
 [Same structure]
+
+### Nested Documentation
+
+#### packages/api/README.md
+
+| Claim | Status | Evidence |
+|-------|--------|----------|
+| [claim] | [status] | [evidence] |
+
+##### Recommended Updates
+[Specific text changes]
+
+#### packages/web/AGENTS.md
+[Same structure for each nested doc file]
 
 ---
 
@@ -171,12 +202,20 @@ Scope: [docs-only | patterns | full]
 
 ## Recommended Documentation Updates
 
-### AGENTS.md Changes
+### Root Level
 
+#### ./AGENTS.md
 [Exact diff-style changes to apply]
 
-### CLAUDE.md Changes
+#### ./CLAUDE.md
+[Exact diff-style changes to apply]
 
+### Nested Files
+
+#### packages/api/README.md
+[Exact diff-style changes to apply]
+
+#### [other nested files...]
 [Exact diff-style changes to apply]
 
 ---
