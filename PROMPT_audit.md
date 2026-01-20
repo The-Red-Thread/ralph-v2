@@ -105,6 +105,28 @@ For EACH claim found in documentation, verify against actual code:
    - Cite any counter-examples where it's violated
    - Include exact file paths and line numbers
 
+3d. **Discover UNDOCUMENTED patterns** that should be added to AGENTS.md/CLAUDE.md:
+
+   Only report patterns that meet ALL of these criteria:
+   - **Critical:** Would cause bugs, confusion, or wasted effort if not followed
+   - **Obvious:** Clear from 5+ consistent examples in the codebase
+   - **Not documented:** Not already mentioned in AGENTS.md or CLAUDE.md
+   - **Actionable:** A developer could follow the pattern based on your description
+
+   Examples of what to look for:
+   - File naming conventions (e.g., all hooks start with `use-`, all contexts end with `-context`)
+   - Import ordering that's consistently followed
+   - Error handling approach used everywhere
+   - State management patterns
+   - API call patterns
+   - Component composition patterns
+
+   **DO NOT report:**
+   - Subjective style preferences
+   - Patterns with fewer than 5 clear examples
+   - Anything you're uncertain about
+   - Framework defaults (only project-specific conventions)
+
 Use an Opus subagent with 'ultrathink' for pattern categorization decisions.
 
 ---
@@ -167,16 +189,33 @@ Scope: [docs-only | patterns | full]
 
 ## Pattern Analysis
 
-### Good Patterns (Document These)
+### Good Patterns (Already Documented)
 
 #### 1. [Pattern Name]
 **Description:** [What the pattern is]
-**Evidence:**
+**Documented in:** [file:line]
+**Evidence pattern is followed:**
 - `src/services/auth.ts:45` - [code snippet]
 - `src/services/user.ts:78` - [code snippet]
-- `src/services/api.ts:23` - [code snippet]
 
-**Recommendation:** Document in AGENTS.md under "Codebase Patterns"
+### Undocumented Patterns (SHOULD ADD to docs)
+
+Only patterns meeting ALL criteria: critical, 5+ examples, not documented, actionable.
+
+#### 1. [Pattern Name]
+**Description:** [What the pattern is - be specific enough to follow]
+**Why critical:** [What breaks or gets confusing if not followed]
+**Evidence (5+ examples required):**
+- `src/file1.ts:10` - [code snippet]
+- `src/file2.ts:20` - [code snippet]
+- `src/file3.ts:30` - [code snippet]
+- `src/file4.ts:40` - [code snippet]
+- `src/file5.ts:50` - [code snippet]
+
+**Recommended addition to AGENTS.md or CLAUDE.md:**
+```markdown
+[Exact text to add]
+```
 
 ### Inconsistent Patterns (Standardize)
 
