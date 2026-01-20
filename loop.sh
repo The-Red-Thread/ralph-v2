@@ -312,7 +312,7 @@ push_changes() {
 archive_working_files() {
     local branch=$(get_current_branch)
     local timestamp=$(date '+%Y%m%d_%H%M%S')
-    local archive_dir=".ralph/archive/${branch}_${timestamp}"
+    local archive_dir=".ralph-v2/archive/${branch}_${timestamp}"
     local archived_count=0
 
     log "Archiving working files for branch: $branch"
@@ -337,7 +337,7 @@ archive_working_files() {
     if [ "$archived_count" -eq 0 ]; then
         warn "No working files to archive"
         rmdir "$archive_dir" 2>/dev/null || true
-        rmdir ".ralph/archive" 2>/dev/null || true
+        rmdir ".ralph-v2/archive" 2>/dev/null || true
         return 0
     fi
 

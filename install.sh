@@ -215,7 +215,7 @@ init_project() {
 # Ralph v2 - Working files (local only, not shared)
 IMPLEMENTATION_PLAN.md
 AUDIT_REPORT.md
-.ralph/
+.ralph-v2/
 tmp/
 *.tmp
 EOF
@@ -226,7 +226,7 @@ EOF
 # Ralph v2 - Working files (local only, not shared)
 IMPLEMENTATION_PLAN.md
 AUDIT_REPORT.md
-.ralph/
+.ralph-v2/
 tmp/
 *.tmp
 

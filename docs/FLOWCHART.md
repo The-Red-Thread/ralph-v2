@@ -192,7 +192,7 @@ ralph audit   →                                    AUDIT_REPORT.md
 --apply-docs  →     AGENTS.md (fixed)
                     CLAUDE.md (fixed)
 
-ralph done    →                                    → .ralph/archive/
+ralph done    →                                    → .ralph-v2/archive/
 ```
 
 ---

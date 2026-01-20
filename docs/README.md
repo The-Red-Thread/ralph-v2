@@ -113,7 +113,7 @@ ralph 10
 ralph done
 ```
 
-The `ralph done` command archives `IMPLEMENTATION_PLAN.md` and `AUDIT_REPORT.md` to `.ralph/archive/` so you start fresh on the next feature.
+The `ralph done` command archives `IMPLEMENTATION_PLAN.md` and `AUDIT_REPORT.md` to `.ralph-v2/archive/` so you start fresh on the next feature.
 
 ## Codebase Audit
 
@@ -185,7 +185,7 @@ ralph audit --apply-docs
 |------|---------|
 | `IMPLEMENTATION_PLAN.md` | Task list for current work session |
 | `AUDIT_REPORT.md` | Point-in-time audit findings |
-| `.ralph/archive/` | Archived working files from completed features |
+| `.ralph-v2/archive/` | Archived working files from completed features |
 
 Working files are **not committed** to avoid conflicts when multiple people use Ralph on the same project. Each person has their own local copy.
 
