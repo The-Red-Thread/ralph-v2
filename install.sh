@@ -117,6 +117,26 @@ NOTIFY_PER_ITERATION=false
 
 # Enable macOS desktop notifications (default: true)
 DESKTOP_NOTIFICATION=true
+
+# =============================================================================
+# CIRCUIT BREAKER
+# =============================================================================
+
+# Enable circuit breaker to stop when stuck (default: true)
+CIRCUIT_BREAKER_ENABLED=true
+
+# Stop after N consecutive iterations with no commits (default: 3)
+CIRCUIT_BREAKER_THRESHOLD=3
+
+# Stop after N consecutive iteration errors (default: 5)
+CIRCUIT_BREAKER_ERROR_THRESHOLD=5
+
+# =============================================================================
+# RATE TRACKING
+# =============================================================================
+
+# Warn at this many iterations per hour (default: 50)
+RATE_WARNING_THRESHOLD=50
 EOF
         success "Created config file: $config_dir/config"
     else
@@ -215,7 +235,10 @@ init_project() {
 # Ralph v2 - Working files (local only, not shared)
 IMPLEMENTATION_PLAN.md
 AUDIT_REPORT.md
+BACKPRESSURE_REPORT.md
 .ralph-v2/
+.ralph-status.json
+ralph.log
 tmp/
 *.tmp
 EOF
@@ -226,7 +249,10 @@ EOF
 # Ralph v2 - Working files (local only, not shared)
 IMPLEMENTATION_PLAN.md
 AUDIT_REPORT.md
+BACKPRESSURE_REPORT.md
 .ralph-v2/
+.ralph-status.json
+ralph.log
 tmp/
 *.tmp
 
