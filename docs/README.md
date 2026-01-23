@@ -323,12 +323,16 @@ Move status updates to IMPLEMENTATION_PLAN.md. AGENTS.md should only contain ope
 ## Commands Reference
 
 ```bash
+# Basic commands
 ralph                        # Build mode, unlimited
 ralph 20                     # Build mode, max 20 iterations
 ralph plan                   # Planning mode, unlimited
 ralph plan 5                 # Planning mode, max 5 iterations
 ralph plan-work "desc"       # Scoped planning for branch
 ralph plan-work "desc" 3     # Scoped planning, max 3 iterations
+ralph done                   # Archive working files after feature complete
+
+# Audit commands
 ralph audit                  # Full codebase audit
 ralph audit --docs-only      # Documentation accuracy only
 ralph audit --patterns       # Include pattern analysis
@@ -336,9 +340,128 @@ ralph audit --quick          # Lightweight audit (lower cost)
 ralph audit --full --apply   # Full audit with auto-apply fixes
 ralph audit --apply-docs     # Apply documentation fixes only
 ralph audit --backpressure   # Analyze testing gaps and feedback loops
-ralph done                   # Archive working files after feature complete
+
+# Monitoring & safety flags (can combine with any mode)
+ralph --monitor 20           # Build with live tmux dashboard
+ralph plan --monitor         # Plan with live monitoring
+ralph --no-circuit-breaker   # Disable circuit breaker
+ralph --circuit-breaker-threshold 5  # Custom threshold (default: 3)
+ralph monitor                # Attach to existing monitor session
+
+# Setup commands
 ralph-init                   # Initialize current directory as Ralph project
 ralph-check                  # Check prerequisites are installed
+```
+
+## Circuit Breaker
+
+Ralph v2 includes a circuit breaker that automatically stops execution when it detects the loop is stuck. This prevents runaway API costs and wasted iterations.
+
+### How It Works
+
+The circuit breaker monitors two conditions:
+
+1. **No Progress:** Stops after N consecutive iterations with no new commits (default: 3)
+2. **Consecutive Errors:** Stops after N consecutive iteration failures (default: 5)
+
+### Configuration
+
+```bash
+# In ~/.config/ralph/config
+CIRCUIT_BREAKER_ENABLED=true          # Enable/disable (default: true)
+CIRCUIT_BREAKER_THRESHOLD=3           # No-progress threshold (default: 3)
+CIRCUIT_BREAKER_ERROR_THRESHOLD=5     # Error threshold (default: 5)
+```
+
+### Command Line Options
+
+```bash
+ralph --no-circuit-breaker 50         # Disable for this session
+ralph --circuit-breaker-threshold 5   # Custom threshold for this session
+```
+
+### When It Triggers
+
+When the circuit breaker trips, Ralph displays diagnostic information:
+
+```
+╔═══════════════════════════════════════════════════════════════╗
+║              CIRCUIT BREAKER TRIGGERED                        ║
+╠═══════════════════════════════════════════════════════════════╣
+║  No commits in 3 consecutive iterations.                      ║
+║  Ralph may be stuck in a loop.                                ║
+║                                                               ║
+║  Suggestions:                                                 ║
+║  • Check IMPLEMENTATION_PLAN.md for issues                    ║
+║  • Run 'ralph plan' to regenerate the plan                    ║
+║  • Review the log file: ralph.log                             ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+## Live Monitoring
+
+Ralph v2 supports live monitoring via tmux for real-time visibility into long-running sessions.
+
+### Prerequisites
+
+```bash
+# macOS
+brew install tmux
+
+# Linux
+apt install tmux
+```
+
+### Usage
+
+```bash
+# Start Ralph with monitoring
+ralph --monitor 20
+
+# In another terminal, attach to the monitor
+ralph monitor
+# or
+tmux attach -t ralph-monitor
+```
+
+### Monitor Layout
+
+The tmux session has three panes:
+
+1. **Left (main):** Live log file stream
+2. **Top right:** Status JSON + recent commits + plan preview
+3. **Bottom right:** Simple progress indicator (iteration, commits, stall count)
+
+### Status File
+
+Ralph writes a `.ralph-status.json` file that the monitor reads:
+
+```json
+{
+    "timestamp": 1705847123,
+    "iteration": 5,
+    "max_iterations": 20,
+    "mode": "build",
+    "branch": "ralph/feature-x",
+    "total_commits": 3,
+    "consecutive_no_progress": 0,
+    "circuit_breaker_threshold": 3,
+    "iterations_this_hour": 5,
+    "status": "running"
+}
+```
+
+## Rate Tracking
+
+Ralph tracks iteration rate and warns when approaching high usage:
+
+- Tracks iterations per hour
+- Warns at 50 iterations/hour (configurable via `RATE_WARNING_THRESHOLD`)
+- Displays rate info in session summary
+
+```bash
+# In ~/.config/ralph/config
+RATE_WARNING_THRESHOLD=50   # Warn at this many iterations/hour
 ```
 
 ## Environment Variables
@@ -347,6 +470,10 @@ ralph-check                  # Check prerequisites are installed
 |----------|---------|-------------|
 | `RALPH_DIR` | `~/.ralph-v2` | Ralph installation directory |
 | `CONFIG_FILE` | `~/.config/ralph/config` | Configuration file path |
+| `CIRCUIT_BREAKER_ENABLED` | `true` | Enable/disable circuit breaker |
+| `CIRCUIT_BREAKER_THRESHOLD` | `3` | Iterations without commits before stopping |
+| `CIRCUIT_BREAKER_ERROR_THRESHOLD` | `5` | Consecutive errors before stopping |
+| `RATE_WARNING_THRESHOLD` | `50` | Warn at this many iterations/hour |
 
 ## Notifications
 
@@ -357,6 +484,10 @@ Ralph v2 supports Slack and desktop notifications to keep you informed when runn
 Edit `~/.config/ralph/config`:
 
 ```bash
+# =============================================================================
+# Notifications
+# =============================================================================
+
 # Slack webhook URL (required for Slack notifications)
 SLACK_WEBHOOK_URL="https://hooks.slack.com/services/xxx/yyy/zzz"
 
@@ -365,6 +496,26 @@ NOTIFY_PER_ITERATION=true
 
 # Desktop notifications on macOS (default: true)
 DESKTOP_NOTIFICATION=true
+
+# =============================================================================
+# Circuit Breaker
+# =============================================================================
+
+# Enable/disable circuit breaker (default: true)
+CIRCUIT_BREAKER_ENABLED=true
+
+# Stop after N iterations with no commits (default: 3)
+CIRCUIT_BREAKER_THRESHOLD=3
+
+# Stop after N consecutive errors (default: 5)
+CIRCUIT_BREAKER_ERROR_THRESHOLD=5
+
+# =============================================================================
+# Rate Tracking
+# =============================================================================
+
+# Warn at this many iterations per hour (default: 50)
+RATE_WARNING_THRESHOLD=50
 ```
 
 ### Setting Up Slack
@@ -382,6 +533,7 @@ DESKTOP_NOTIFICATION=true
 | Session complete | ✅ | ✅ |
 | Max iterations reached | ✅ | ✅ |
 | Session interrupted (Ctrl+C) | ✅ | ✅ |
+| Circuit breaker triggered | ✅ | ✅ |
 | Each iteration (if enabled) | ✅ | ❌ |
 
 ### Slack Message Content
@@ -391,7 +543,9 @@ Notifications include:
 - Mode (plan/build/plan-work)
 - Session duration
 - Iteration count
+- Total commits this session
 - Latest commit hash
+- Exit reason
 
 ## Conventions
 

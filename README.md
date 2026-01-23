@@ -101,8 +101,14 @@ ralph plan 5                 # Planning mode, max 5 iterations
 ralph plan-work "desc"       # Scoped planning for feature branch
 ralph audit                  # Audit documentation and patterns
 ralph audit --quick          # Lightweight audit (lower cost)
+ralph done                   # Archive working files after feature complete
 ralph-init                   # Initialize current directory as Ralph project
 ralph-check                  # Check prerequisites are installed
+
+# Monitoring & Safety
+ralph --monitor 20           # Build with live tmux dashboard
+ralph --no-circuit-breaker   # Disable automatic stuck-loop detection
+ralph monitor                # Attach to existing monitor session
 ```
 
 ## Key Concepts
@@ -112,6 +118,8 @@ ralph-check                  # Check prerequisites are installed
 - **IMPLEMENTATION_PLAN.md** - Task list — managed entirely by Ralph
 - **Backpressure** - Tests, types, and lint that catch errors automatically
 - **Subagent fan-out** - Parallel LLM calls for reading, single for writing
+- **Circuit breaker** - Automatic stop when stuck (no commits for 3 iterations)
+- **Live monitoring** - tmux dashboard for real-time session visibility
 
 ## Prerequisites
 

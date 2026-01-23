@@ -18,6 +18,14 @@
 #   ./loop.sh audit --apply-docs           # Apply documentation fixes only
 #   ./loop.sh audit --backpressure         # Analyze testing gaps and feedback loops
 #   ./loop.sh done                         # Archive working files after feature complete
+#
+# Monitoring & Safety:
+#   ./loop.sh --monitor 20                 # Build with live tmux dashboard
+#   ./loop.sh plan --monitor               # Plan with live monitoring
+#   ./loop.sh --no-circuit-breaker 50      # Disable circuit breaker
+#
+# Circuit Breaker: Stops after 3 iterations with no commits (configurable)
+# Rate Limiting: Tracks iterations per hour, warns at thresholds
 # =============================================================================
 
 set -euo pipefail
@@ -28,6 +36,7 @@ set -euo pipefail
 
 RALPH_DIR="${RALPH_DIR:-$HOME/.ralph-v2}"
 CONFIG_FILE="${CONFIG_FILE:-$HOME/.config/ralph/config}"
+LOG_FILE="ralph.log"
 ITERATION=0
 SESSION_START=$(date +%s)
 AUDIT_SCOPE="full"
@@ -44,6 +53,26 @@ fi
 NOTIFY_PER_ITERATION=${NOTIFY_PER_ITERATION:-false}
 DESKTOP_NOTIFICATION=${DESKTOP_NOTIFICATION:-true}
 SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}"
+
+# Circuit breaker settings (can be overridden in config)
+CIRCUIT_BREAKER_ENABLED=${CIRCUIT_BREAKER_ENABLED:-true}
+CIRCUIT_BREAKER_THRESHOLD=${CIRCUIT_BREAKER_THRESHOLD:-3}  # Stop after N iterations with no progress
+CIRCUIT_BREAKER_ERROR_THRESHOLD=${CIRCUIT_BREAKER_ERROR_THRESHOLD:-5}  # Stop after N consecutive errors
+
+# Progress tracking
+LAST_COMMIT_HASH=""
+CONSECUTIVE_NO_PROGRESS=0
+CONSECUTIVE_ERRORS=0
+TOTAL_COMMITS=0
+
+# Monitoring settings
+MONITOR_MODE=${MONITOR_MODE:-false}
+MONITOR_SESSION_NAME="ralph-monitor"
+
+# Rate tracking
+ITERATIONS_THIS_HOUR=0
+HOUR_START=$(date +%s)
+RATE_WARNING_THRESHOLD=${RATE_WARNING_THRESHOLD:-50}  # Warn when approaching this many iterations/hour
 
 # Colors for output
 RED='\033[0;31m'
@@ -246,6 +275,267 @@ send_desktop_notification() {
 }
 
 # =============================================================================
+# PROGRESS DETECTION & CIRCUIT BREAKER
+# =============================================================================
+
+init_progress_tracking() {
+    LAST_COMMIT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "")
+    CONSECUTIVE_NO_PROGRESS=0
+    CONSECUTIVE_ERRORS=0
+    TOTAL_COMMITS=0
+    log "Progress tracking initialized (last commit: ${LAST_COMMIT_HASH:0:7})"
+}
+
+check_progress() {
+    local current_commit=$(git rev-parse HEAD 2>/dev/null || echo "")
+
+    if [ -z "$current_commit" ]; then
+        warn "Could not get current commit hash"
+        return 0
+    fi
+
+    if [ "$current_commit" = "$LAST_COMMIT_HASH" ]; then
+        CONSECUTIVE_NO_PROGRESS=$((CONSECUTIVE_NO_PROGRESS + 1))
+        warn "No new commits this iteration ($CONSECUTIVE_NO_PROGRESS/$CIRCUIT_BREAKER_THRESHOLD)"
+        write_status_file
+        return 1  # No progress
+    else
+        if [ $CONSECUTIVE_NO_PROGRESS -gt 0 ]; then
+            success "Progress resumed after $CONSECUTIVE_NO_PROGRESS stalled iterations"
+        fi
+        CONSECUTIVE_NO_PROGRESS=0
+        TOTAL_COMMITS=$((TOTAL_COMMITS + 1))
+        LAST_COMMIT_HASH="$current_commit"
+        log "New commit detected: ${current_commit:0:7} (total this session: $TOTAL_COMMITS)"
+        write_status_file
+        return 0  # Progress made
+    fi
+}
+
+check_circuit_breaker() {
+    if [ "$CIRCUIT_BREAKER_ENABLED" != "true" ]; then
+        return 0  # Circuit breaker disabled
+    fi
+
+    # Check for no progress
+    if [ $CONSECUTIVE_NO_PROGRESS -ge $CIRCUIT_BREAKER_THRESHOLD ]; then
+        echo ""
+        error "╔═══════════════════════════════════════════════════════════════╗"
+        error "║              CIRCUIT BREAKER TRIGGERED                        ║"
+        error "╠═══════════════════════════════════════════════════════════════╣"
+        error "║  No commits in $CIRCUIT_BREAKER_THRESHOLD consecutive iterations.                         ║"
+        error "║  Ralph may be stuck in a loop.                                ║"
+        error "║                                                               ║"
+        error "║  Suggestions:                                                 ║"
+        error "║  • Check IMPLEMENTATION_PLAN.md for issues                    ║"
+        error "║  • Run 'ralph plan' to regenerate the plan                    ║"
+        error "║  • Review the log file: $LOG_FILE                             ║"
+        error "║                                                               ║"
+        error "║  To disable: --no-circuit-breaker or set                      ║"
+        error "║  CIRCUIT_BREAKER_ENABLED=false in config                      ║"
+        error "╚═══════════════════════════════════════════════════════════════╝"
+        echo ""
+        return 1  # Trip the breaker
+    fi
+
+    # Check for consecutive errors
+    if [ $CONSECUTIVE_ERRORS -ge $CIRCUIT_BREAKER_ERROR_THRESHOLD ]; then
+        echo ""
+        error "╔═══════════════════════════════════════════════════════════════╗"
+        error "║         CIRCUIT BREAKER TRIGGERED (ERRORS)                    ║"
+        error "╠═══════════════════════════════════════════════════════════════╣"
+        error "║  $CONSECUTIVE_ERRORS consecutive iteration errors detected.                      ║"
+        error "║                                                               ║"
+        error "║  Check the log file for details: $LOG_FILE                    ║"
+        error "╚═══════════════════════════════════════════════════════════════╝"
+        echo ""
+        return 1  # Trip the breaker
+    fi
+
+    return 0  # All good
+}
+
+record_iteration_error() {
+    CONSECUTIVE_ERRORS=$((CONSECUTIVE_ERRORS + 1))
+    warn "Iteration error recorded ($CONSECUTIVE_ERRORS/$CIRCUIT_BREAKER_ERROR_THRESHOLD)"
+    write_status_file
+}
+
+clear_iteration_error() {
+    if [ $CONSECUTIVE_ERRORS -gt 0 ]; then
+        log "Error streak cleared after $CONSECUTIVE_ERRORS errors"
+    fi
+    CONSECUTIVE_ERRORS=0
+}
+
+# =============================================================================
+# RATE TRACKING
+# =============================================================================
+
+check_rate_limit() {
+    local now=$(date +%s)
+    local hour_elapsed=$((now - HOUR_START))
+
+    # Reset counter every hour
+    if [ $hour_elapsed -ge 3600 ]; then
+        log "Hourly rate reset: $ITERATIONS_THIS_HOUR iterations in the last hour"
+        ITERATIONS_THIS_HOUR=0
+        HOUR_START=$now
+    fi
+
+    ITERATIONS_THIS_HOUR=$((ITERATIONS_THIS_HOUR + 1))
+
+    # Warn if approaching threshold
+    if [ $ITERATIONS_THIS_HOUR -eq $RATE_WARNING_THRESHOLD ]; then
+        warn "Rate warning: $ITERATIONS_THIS_HOUR iterations this hour"
+        warn "Consider monitoring API usage if running with many parallel projects"
+    fi
+
+    write_status_file
+}
+
+get_rate_info() {
+    local now=$(date +%s)
+    local hour_elapsed=$((now - HOUR_START))
+    local minutes_remaining=$(( (3600 - hour_elapsed) / 60 ))
+    echo "$ITERATIONS_THIS_HOUR iter/hr (resets in ${minutes_remaining}m)"
+}
+
+# =============================================================================
+# STATUS FILE (for monitoring)
+# =============================================================================
+
+write_status_file() {
+    local status_file=".ralph-status.json"
+    local now=$(date +%s)
+    local elapsed=$((now - SESSION_START))
+    local current_commit=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
+
+    cat > "$status_file" << EOF
+{
+    "timestamp": $now,
+    "iteration": $ITERATION,
+    "max_iterations": $MAX_ITERATIONS,
+    "mode": "$MODE",
+    "branch": "$(get_current_branch)",
+    "project": "$(get_project_name)",
+    "elapsed_seconds": $elapsed,
+    "total_commits": $TOTAL_COMMITS,
+    "consecutive_no_progress": $CONSECUTIVE_NO_PROGRESS,
+    "consecutive_errors": $CONSECUTIVE_ERRORS,
+    "circuit_breaker_threshold": $CIRCUIT_BREAKER_THRESHOLD,
+    "circuit_breaker_enabled": $CIRCUIT_BREAKER_ENABLED,
+    "iterations_this_hour": $ITERATIONS_THIS_HOUR,
+    "last_commit": "$current_commit",
+    "status": "running"
+}
+EOF
+}
+
+cleanup_status_file() {
+    local status_file=".ralph-status.json"
+    if [ -f "$status_file" ]; then
+        # Update status to stopped before removing
+        local now=$(date +%s)
+        local elapsed=$((now - SESSION_START))
+        cat > "$status_file" << EOF
+{
+    "timestamp": $now,
+    "iteration": $ITERATION,
+    "mode": "$MODE",
+    "elapsed_seconds": $elapsed,
+    "total_commits": $TOTAL_COMMITS,
+    "status": "stopped"
+}
+EOF
+    fi
+}
+
+# =============================================================================
+# LIVE MONITORING (tmux)
+# =============================================================================
+
+check_tmux_available() {
+    if ! command -v tmux &> /dev/null; then
+        error "tmux is required for --monitor mode"
+        error "Install with: brew install tmux (macOS) or apt install tmux (Linux)"
+        exit 1
+    fi
+}
+
+start_monitor_session() {
+    check_tmux_available
+
+    local project_name=$(get_project_name)
+
+    # Kill existing session if any
+    tmux kill-session -t "$MONITOR_SESSION_NAME" 2>/dev/null || true
+
+    # Create new tmux session with monitoring layout
+    tmux new-session -d -s "$MONITOR_SESSION_NAME" -x 180 -y 50
+
+    # Main pane: tail the log file
+    tmux send-keys -t "$MONITOR_SESSION_NAME" "echo 'Ralph v2 Monitor - $project_name'; echo '═══════════════════════════════════════════════════════'; tail -f $LOG_FILE 2>/dev/null || echo 'Waiting for log file...'; while [ ! -f $LOG_FILE ]; do sleep 1; done; tail -f $LOG_FILE" C-m
+
+    # Split horizontally for status
+    tmux split-window -t "$MONITOR_SESSION_NAME" -h -p 35
+
+    # Right pane: watch status and git log
+    tmux send-keys -t "$MONITOR_SESSION_NAME" "watch -n 2 -c 'echo \"═══ RALPH STATUS ═══\"; if [ -f .ralph-status.json ]; then cat .ralph-status.json | python3 -m json.tool 2>/dev/null || cat .ralph-status.json; else echo \"Waiting for status...\"; fi; echo \"\"; echo \"═══ RECENT COMMITS ═══\"; git log --oneline --color=always -8 2>/dev/null || echo \"No commits yet\"; echo \"\"; echo \"═══ PLAN (first 20 lines) ═══\"; head -20 IMPLEMENTATION_PLAN.md 2>/dev/null || echo \"No plan file\"'" C-m
+
+    # Split the right pane vertically for a mini dashboard
+    tmux split-window -t "$MONITOR_SESSION_NAME" -v -p 30
+
+    # Bottom right: simple progress indicator
+    tmux send-keys -t "$MONITOR_SESSION_NAME" "watch -n 1 'if [ -f .ralph-status.json ]; then iter=\$(grep -o \"\\\"iteration\\\": [0-9]*\" .ralph-status.json | grep -o \"[0-9]*\"); max=\$(grep -o \"\\\"max_iterations\\\": [0-9]*\" .ralph-status.json | grep -o \"[0-9]*\"); commits=\$(grep -o \"\\\"total_commits\\\": [0-9]*\" .ralph-status.json | grep -o \"[0-9]*\"); noprog=\$(grep -o \"\\\"consecutive_no_progress\\\": [0-9]*\" .ralph-status.json | grep -o \"[0-9]*\"); echo \"┌─────────────────────────┐\"; echo \"│   ITERATION: \$iter / \$max    │\"; echo \"│   COMMITS: \$commits            │\"; echo \"│   STALLED: \$noprog / $CIRCUIT_BREAKER_THRESHOLD          │\"; echo \"└─────────────────────────┘\"; fi'" C-m
+
+    log "Monitor session started: $MONITOR_SESSION_NAME"
+    log "Attach with: tmux attach -t $MONITOR_SESSION_NAME"
+}
+
+attach_monitor_session() {
+    if tmux has-session -t "$MONITOR_SESSION_NAME" 2>/dev/null; then
+        exec tmux attach -t "$MONITOR_SESSION_NAME"
+    else
+        error "No monitor session found. Start ralph with --monitor first."
+        exit 1
+    fi
+}
+
+stop_monitor_session() {
+    tmux kill-session -t "$MONITOR_SESSION_NAME" 2>/dev/null || true
+}
+
+# =============================================================================
+# LOGGING TO FILE
+# =============================================================================
+
+init_log_file() {
+    local project_name=$(get_project_name)
+    local branch=$(get_current_branch)
+
+    # Create or append to log file
+    {
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════════"
+        echo "RALPH v2 SESSION STARTED"
+        echo "═══════════════════════════════════════════════════════════════════"
+        echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "Project:   $project_name"
+        echo "Branch:    $branch"
+        echo "Mode:      $MODE"
+        echo "Max iter:  ${MAX_ITERATIONS:-unlimited}"
+        echo "Circuit breaker: $CIRCUIT_BREAKER_ENABLED (threshold: $CIRCUIT_BREAKER_THRESHOLD)"
+        echo "═══════════════════════════════════════════════════════════════════"
+        echo ""
+    } >> "$LOG_FILE"
+}
+
+log_to_file() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
+# =============================================================================
 # VALIDATION FUNCTIONS
 # =============================================================================
 
@@ -378,6 +668,35 @@ parse_arguments() {
     MAX_ITERATIONS=0  # 0 = unlimited
     WORK_SCOPE=""
 
+    # First pass: extract global flags
+    local args=()
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --monitor)
+                MONITOR_MODE=true
+                ;;
+            --no-circuit-breaker)
+                CIRCUIT_BREAKER_ENABLED=false
+                ;;
+            --circuit-breaker-threshold)
+                shift
+                if [[ "$1" =~ ^[0-9]+$ ]]; then
+                    CIRCUIT_BREAKER_THRESHOLD="$1"
+                else
+                    error "--circuit-breaker-threshold requires a number"
+                    exit 1
+                fi
+                ;;
+            *)
+                args+=("$1")
+                ;;
+        esac
+        shift
+    done
+
+    # Reset positional parameters to non-flag arguments
+    set -- "${args[@]}"
+
     if [ $# -eq 0 ]; then
         # Default: build mode, unlimited
         return
@@ -446,13 +765,18 @@ parse_arguments() {
         done)
             MODE="done"
             ;;
+        monitor)
+            # Standalone monitor command to attach to existing session
+            attach_monitor_session
+            exit 0
+            ;;
         *)
             if [[ "$1" =~ ^[0-9]+$ ]]; then
                 # Number argument = build mode with iteration limit
                 MAX_ITERATIONS="$1"
             else
                 error "Unknown argument: $1"
-                error "Usage: ./loop.sh [plan|plan-work \"desc\"|audit|done|N]"
+                error "Usage: ./loop.sh [plan|plan-work \"desc\"|audit|done|monitor|N] [--monitor] [--no-circuit-breaker]"
                 exit 1
             fi
             ;;
@@ -530,6 +854,16 @@ main() {
         max_iter_display="unlimited"
     fi
 
+    local circuit_breaker_display="enabled (threshold: $CIRCUIT_BREAKER_THRESHOLD)"
+    if [ "$CIRCUIT_BREAKER_ENABLED" != "true" ]; then
+        circuit_breaker_display="disabled"
+    fi
+
+    local monitor_display="disabled"
+    if [ "$MONITOR_MODE" = "true" ]; then
+        monitor_display="enabled (tmux)"
+    fi
+
     echo ""
     echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║                    RALPH v2 - Starting                        ║${NC}"
@@ -546,6 +880,10 @@ main() {
         printf "${GREEN}║${NC}  Quick mode:     %-44s ${GREEN}║${NC}\n" "$AUDIT_QUICK"
         printf "${GREEN}║${NC}  Auto-apply:     %-44s ${GREEN}║${NC}\n" "$AUDIT_APPLY"
     fi
+    echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    printf "${GREEN}║${NC}  Circuit breaker: %-43s ${GREEN}║${NC}\n" "$circuit_breaker_display"
+    printf "${GREEN}║${NC}  Live monitor:    %-43s ${GREEN}║${NC}\n" "$monitor_display"
+    printf "${GREEN}║${NC}  Log file:        %-43s ${GREEN}║${NC}\n" "$LOG_FILE"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
@@ -561,6 +899,17 @@ main() {
     branch=$(get_current_branch)
     log "Operating on branch: $branch"
 
+    # Initialize logging and tracking
+    init_log_file
+    init_progress_tracking
+    write_status_file
+
+    # Start monitor session if requested
+    if [ "$MONITOR_MODE" = "true" ]; then
+        start_monitor_session
+        log "Monitor session started. Attach with: tmux attach -t $MONITOR_SESSION_NAME"
+    fi
+
     # Display notification config
     if [ -n "$SLACK_WEBHOOK_URL" ]; then
         log "Slack notifications: enabled"
@@ -569,20 +918,24 @@ main() {
     fi
 
     # Trap for clean exit with notifications
-    trap 'send_slack_notification "error" "$ITERATION"; send_desktop_notification "Ralph v2" "Session interrupted after $ITERATION iterations"' INT TERM
+    trap 'cleanup_on_exit "interrupted"' INT TERM
 
     # Main loop
     while true; do
         ITERATION=$((ITERATION + 1))
+        log_to_file "Starting iteration $ITERATION"
 
         # Check iteration limit
         if [ "$MAX_ITERATIONS" -gt 0 ] && [ "$ITERATION" -gt "$MAX_ITERATIONS" ]; then
             echo ""
             success "Reached maximum iterations ($MAX_ITERATIONS). Stopping."
-            send_slack_notification "stopped" "$((ITERATION - 1))"
-            send_desktop_notification "Ralph v2" "Reached max iterations ($MAX_ITERATIONS)"
+            log_to_file "Reached maximum iterations ($MAX_ITERATIONS)"
+            cleanup_on_exit "max_iterations"
             break
         fi
+
+        # Track rate
+        check_rate_limit
 
         # Notify iteration start (if enabled)
         send_iteration_notification "$ITERATION" "started"
@@ -590,29 +943,75 @@ main() {
         # Run Claude iteration
         if ! run_iteration "$PROMPT_FILE" "$MODE"; then
             error "Iteration $ITERATION failed"
+            log_to_file "Iteration $ITERATION failed"
+            record_iteration_error
+
+            # Check circuit breaker for errors
+            if ! check_circuit_breaker; then
+                log_to_file "Circuit breaker triggered (errors)"
+                cleanup_on_exit "circuit_breaker_errors"
+                break
+            fi
+
             warn "Continuing to next iteration..."
             continue
         fi
 
+        # Clear error streak on successful iteration
+        clear_iteration_error
+
+        # Check for progress (new commits)
+        check_progress
+
+        # Check circuit breaker for no progress
+        if ! check_circuit_breaker; then
+            log_to_file "Circuit breaker triggered (no progress)"
+            cleanup_on_exit "circuit_breaker_no_progress"
+            break
+        fi
+
         # Notify iteration complete (if enabled)
         send_iteration_notification "$ITERATION" "completed"
+        log_to_file "Iteration $ITERATION completed (commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'none'))"
 
         # Push changes after each iteration
         push_changes "$branch" || {
             warn "Push failed, continuing anyway..."
+            log_to_file "Push failed for iteration $ITERATION"
         }
 
         # Small delay between iterations to avoid rate limits
         sleep 2
     done
 
+    # Normal completion
+    cleanup_on_exit "complete"
+}
+
+cleanup_on_exit() {
+    local exit_reason="${1:-unknown}"
+
     # Clear trap
     trap - INT TERM
+
+    # Update status file
+    cleanup_status_file
+
+    # Stop monitor session if running
+    if [ "$MONITOR_MODE" = "true" ]; then
+        # Don't kill the session, let user review
+        log "Monitor session still running. Kill with: tmux kill-session -t $MONITOR_SESSION_NAME"
+    fi
 
     local project_name=$(get_project_name)
     local duration=$(get_session_duration)
     local branch=$(get_current_branch)
     local commit=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
+    local rate_info=$(get_rate_info)
+
+    # Log final state
+    log_to_file "Session ended: $exit_reason"
+    log_to_file "Final stats: $ITERATION iterations, $TOTAL_COMMITS commits, duration: $duration"
 
     echo ""
     echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
@@ -621,15 +1020,28 @@ main() {
     printf "${GREEN}║${NC}  Project:      ${CYAN}%-46s${NC} ${GREEN}║${NC}\n" "$project_name"
     printf "${GREEN}║${NC}  Branch:       ${BLUE}%-46s${NC} ${GREEN}║${NC}\n" "$branch"
     printf "${GREEN}║${NC}  Mode:         ${YELLOW}%-46s${NC} ${GREEN}║${NC}\n" "$MODE"
+    printf "${GREEN}║${NC}  Exit reason:  %-46s ${GREEN}║${NC}\n" "$exit_reason"
     echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
     printf "${GREEN}║${NC}  Iterations:   %-46s ${GREEN}║${NC}\n" "$ITERATION"
+    printf "${GREEN}║${NC}  Commits:      %-46s ${GREEN}║${NC}\n" "$TOTAL_COMMITS"
     printf "${GREEN}║${NC}  Duration:     %-46s ${GREEN}║${NC}\n" "$duration"
+    printf "${GREEN}║${NC}  Rate:         %-46s ${GREEN}║${NC}\n" "$rate_info"
     printf "${GREEN}║${NC}  Last commit:  %-46s ${GREEN}║${NC}\n" "$commit"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 
+    # Determine notification status
+    local notify_status="complete"
+    if [ "$exit_reason" = "interrupted" ]; then
+        notify_status="error"
+    elif [ "$exit_reason" = "max_iterations" ]; then
+        notify_status="stopped"
+    elif [[ "$exit_reason" == circuit_breaker* ]]; then
+        notify_status="error"
+    fi
+
     # Send final notifications
-    send_slack_notification "complete" "$ITERATION"
-    send_desktop_notification "Ralph v2" "$project_name completed - $ITERATION iterations in $duration"
+    send_slack_notification "$notify_status" "$ITERATION"
+    send_desktop_notification "Ralph v2" "$project_name: $exit_reason after $ITERATION iterations ($TOTAL_COMMITS commits)"
 }
 
 # =============================================================================
